@@ -31,6 +31,7 @@ interface AppShellProps {
   onUserChange: (user: User) => void;
   currentPage: string;
   onNavigate: (page: string, params?: any) => void;
+  onLogout?: () => void;
   children: React.ReactNode;
 }
 
@@ -39,6 +40,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onUserChange,
   currentPage,
   onNavigate,
+  onLogout,
   children,
 }) => {
   const [isPersonaOpen, setIsPersonaOpen] = useState(false);

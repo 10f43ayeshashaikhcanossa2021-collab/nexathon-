@@ -30,15 +30,66 @@ import { store, LABELLED_TEST_SET } from '../services/store';
 import { supabaseService, SupabaseHealthReport } from '../services/supabase';
 
 class ApiClient {
-  private currentUser: User = store.users[1]; // default to Ishaan Verma (creator)
+  private token: string | null = typeof window !== 'undefined' ? sessionStorage.getItem('inkloom_jwt_token') : null;
+  private currentUser: User = store.users[1];
+
+  getToken(): string | null {
+    if (!this.token && typeof window !== 'undefined') {
+      this.token = sessionStorage.getItem('inkloom_jwt_token');
+    }
+    return this.token;
+  }
+
+  setToken(token: string | null) {
+    this.token = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        sessionStorage.setItem('inkloom_jwt_token', token);
+      } else {
+        sessionStorage.removeItem('inkloom_jwt_token');
+      }
+    }
+  }
+
+  isAuthenticated(): boolean {
+    return Boolean(this.getToken());
+  }
+
+  async login(email: string, password: string): Promise<{ token: string; user: User }> {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Invalid email or password');
+    }
+
+    const data = await res.json();
+    this.setToken(data.token);
+    this.setCurrentUser(data.user);
+    return data;
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: this.getHeaders(),
+      });
+    } catch (_) {}
+    this.setToken(null);
+  }
 
   getCurrentUser(): User {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('inkloom_active_user');
+      const saved = sessionStorage.getItem('inkloom_active_user');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          const found = store.users.find((u) => u.user_id === parsed.user_id);
+          const found = store.users.find((u) => u.user_id === parsed.user_id) || parsed;
           if (found) {
             this.currentUser = found;
             return found;
@@ -52,20 +103,17 @@ class ApiClient {
   setCurrentUser(user: User) {
     this.currentUser = user;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('inkloom_active_user', JSON.stringify(user));
+      sessionStorage.setItem('inkloom_active_user', JSON.stringify(user));
     }
   }
 
   private getHeaders(): HeadersInit {
-    const user = this.getCurrentUser();
+    const token = this.getToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${user.user_id}`,
-      'X-Demo-User': user.user_id,
     };
-    if (typeof window !== 'undefined') {
-      const geminiKey = localStorage.getItem('inkloom_gemini_key');
-      if (geminiKey) headers['X-Gemini-Key'] = geminiKey;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
   }

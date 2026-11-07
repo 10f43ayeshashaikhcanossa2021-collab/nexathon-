@@ -20,8 +20,10 @@ import { UsersPage } from './pages/UsersPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SocialPublishingPage } from './pages/SocialPublishingPage';
+import { LoginPage } from './pages/LoginPage';
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => api.isAuthenticated());
   const [currentUser, setCurrentUser] = useState<User>(() => api.getCurrentUser());
   const [currentPage, setCurrentPage] = useState<string>('dashboard');
   const [pageParams, setPageParams] = useState<any>({});
@@ -93,12 +95,27 @@ export default function App() {
     }
   };
 
+  if (!isAuthenticated) {
+    return (
+      <LoginPage
+        onLoginSuccess={() => {
+          setCurrentUser(api.getCurrentUser());
+          setIsAuthenticated(true);
+        }}
+      />
+    );
+  }
+
   return (
     <AppShell
       currentUser={currentUser}
       onUserChange={handleUserChange}
       currentPage={currentPage}
       onNavigate={handleNavigate}
+      onLogout={() => {
+        api.logout();
+        setIsAuthenticated(false);
+      }}
     >
       {renderPage()}
     </AppShell>
