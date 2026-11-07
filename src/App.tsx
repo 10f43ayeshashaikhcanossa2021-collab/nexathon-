@@ -19,6 +19,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { UsersPage } from './pages/UsersPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SocialPublishingPage } from './pages/SocialPublishingPage';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User>(() => api.getCurrentUser());
@@ -67,6 +68,14 @@ export default function App() {
         );
       case 'brand-hub':
         return <BrandHubPage currentUser={currentUser} onNavigate={handleNavigate} />;
+      case 'social-publishing':
+        return (
+          <SocialPublishingPage
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            pageParams={pageParams}
+          />
+        );
       case 'guidelines':
         return <GuidelinesPage currentUser={currentUser} />;
       case 'history':

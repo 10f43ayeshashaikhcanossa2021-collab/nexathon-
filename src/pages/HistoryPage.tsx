@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, ContentSubmission } from '../types/inkloom';
 import { api } from '../api/client';
-import { Search, Filter, Clock, ArrowRight, CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
+import { Search, Filter, Clock, ArrowRight, CheckCircle2, AlertTriangle, FileText, Share2 } from 'lucide-react';
 
 interface HistoryPageProps {
   currentUser: User;
@@ -126,7 +126,21 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ currentUser, onNavigat
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {sub.status === 'approved' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigate('social-publishing', { submissionId: sub.submission_id });
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Broadcast to Social Media"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-teal-600" />
+                      <span className="hidden sm:inline">Broadcast</span>
+                    </button>
+                  )}
                   <span
                     className={`text-[10px] font-bold uppercase px-3 py-1 rounded-full border ${getStatusBadge()}`}
                   >

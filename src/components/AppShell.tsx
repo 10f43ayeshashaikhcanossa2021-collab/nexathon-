@@ -22,6 +22,7 @@ import {
   TestTube2,
   RefreshCw,
   LogOut,
+  Share2,
 } from 'lucide-react';
 
 interface AppShellProps {
@@ -47,6 +48,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'reviewer', 'creator'] },
     { id: 'submissions-new', label: 'Submit Draft', icon: FileText, roles: ['creator', 'admin'] },
     { id: 'review-queue', label: 'Review Queue', icon: Inbox, roles: ['reviewer', 'admin'] },
+    { id: 'social-publishing', label: 'Social Publishing', icon: Share2, roles: ['admin', 'reviewer', 'creator'] },
     { id: 'brand-hub', label: 'Brand Hub', icon: Layers, roles: ['admin'] },
     { id: 'guidelines', label: 'Guidelines & Facts', icon: BookOpen, roles: ['admin', 'reviewer', 'creator'] },
     { id: 'history', label: 'Submission History', icon: Clock, roles: ['admin', 'reviewer', 'creator'] },

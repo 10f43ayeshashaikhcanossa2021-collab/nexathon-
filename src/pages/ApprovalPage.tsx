@@ -13,7 +13,10 @@ import {
   Sparkles,
   ShieldAlert,
   Image as ImageIcon,
+  Share2,
 } from 'lucide-react';
+import { SocialPublishModal } from '../components/SocialPublishModal';
+import { CommentsThread } from '../components/CommentsThread';
 
 interface ApprovalPageProps {
   currentUser: User;
@@ -38,6 +41,7 @@ export const ApprovalPage: React.FC<ApprovalPageProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [decisionSuccess, setDecisionSuccess] = useState<string | null>(null);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -285,9 +289,43 @@ export const ApprovalPage: React.FC<ApprovalPageProps> = ({
                 <span>Approve Content</span>
               </button>
             </div>
+
+            {/* If approved, show Publish to Social button */}
+            {submission.status === 'approved' && (
+              <div className="pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsPublishModalOpen(true)}
+                  className="w-full py-2.5 rounded-xl bg-[#139A93] hover:bg-[#0D706B] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Broadcast to Social Channels</span>
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Collaboration Feedback Thread */}
+          <CommentsThread
+            submissionId={submission.submission_id}
+            versionId={version.version_id}
+            currentUser={currentUser}
+          />
         </div>
       </div>
+
+      {/* Social Publish Modal */}
+      {isPublishModalOpen && (
+        <SocialPublishModal
+          isOpen={isPublishModalOpen}
+          submission={submission}
+          version={version}
+          onClose={() => setIsPublishModalOpen(false)}
+          onPublishSuccess={() => {
+            loadData();
+          }}
+        />
+      )}
     </div>
   );
 };

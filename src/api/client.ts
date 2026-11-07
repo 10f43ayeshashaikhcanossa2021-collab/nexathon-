@@ -20,6 +20,11 @@ import {
   FactCheckItem,
   LabelledTestCase,
   SuggestionStatus,
+  SocialAccount,
+  SocialPostVariant,
+  PublishJob,
+  PublishResult,
+  SocialProvider,
 } from '../types/inkloom';
 import { store, LABELLED_TEST_SET } from '../services/store';
 
@@ -638,6 +643,303 @@ class ApiClient {
       accuracyRate: Math.round((passedCount / results.length) * 100),
       testCases: results,
     };
+  }
+
+  // -----------------------------------------------------------
+  // SOCIAL PUBLISHING & COMMENTS METHODS (SECTION 3 OF SPEC)
+  // -----------------------------------------------------------
+
+  async getSocialProviders() {
+    return [
+      {
+        provider: 'meta_facebook' as SocialProvider,
+        name: 'Meta Facebook Pages',
+        description: 'Publish text, photos, and video updates to official brand pages via Meta Graph API.',
+        icon: 'facebook',
+        supportedTypes: ['page'],
+        maxCharacters: 63206,
+        requiresMedia: false,
+        supportsScheduling: true,
+        scopes: ['pages_manage_posts', 'pages_read_engagement', 'publish_video'],
+      },
+      {
+        provider: 'meta_instagram' as SocialProvider,
+        name: 'Instagram Professional',
+        description: 'Publish photo carousels, single visuals, and captions to connected business profiles.',
+        icon: 'instagram',
+        supportedTypes: ['professional'],
+        maxCharacters: 2200,
+        requiresMedia: true,
+        supportsScheduling: true,
+        scopes: ['instagram_basic', 'instagram_content_publish', 'instagram_manage_insights'],
+      },
+      {
+        provider: 'linkedin' as SocialProvider,
+        name: 'LinkedIn Company & Member',
+        description: 'Publish approved thought-leadership articles, updates, and links to Company Pages.',
+        icon: 'linkedin',
+        supportedTypes: ['organization', 'member'],
+        maxCharacters: 3000,
+        requiresMedia: false,
+        supportsScheduling: true,
+        scopes: ['w_organization_social', 'r_organization_social', 'rw_organization_admin'],
+      },
+      {
+        provider: 'x_twitter' as SocialProvider,
+        name: 'X (formerly Twitter)',
+        description: 'Extensible adapter for broadcasting real-time campaign announcements and short updates.',
+        icon: 'twitter',
+        supportedTypes: ['member'],
+        maxCharacters: 280,
+        requiresMedia: false,
+        supportsScheduling: true,
+        scopes: ['tweet.read', 'tweet.write', 'users.read'],
+      },
+    ];
+  }
+
+  async getSocialAccounts(): Promise<SocialAccount[]> {
+    return store.getSocialAccounts();
+  }
+
+  async connectSocialAccount(data: {
+    provider: SocialProvider;
+    displayName: string;
+    handle?: string;
+    accountType?: 'page' | 'professional' | 'organization' | 'member';
+    scopes?: string[];
+  }): Promise<SocialAccount> {
+    const user = this.getCurrentUser();
+    const newAccount: SocialAccount = {
+      account_id: `soc-${Date.now()}`,
+      provider: data.provider,
+      external_account_id: `ext-${Date.now()}`,
+      display_name: data.displayName,
+      account_handle: data.handle || `@${data.displayName.toLowerCase().replace(/\s+/g, '')}`,
+      account_type: data.accountType || (data.provider === 'meta_facebook' ? 'page' : data.provider === 'meta_instagram' ? 'professional' : 'organization'),
+      granted_scopes: data.scopes || ['publish_content', 'read_engagement'],
+      status: 'connected',
+      last_verified_at: new Date().toISOString(),
+      owner_id: user.user_id,
+      created_at: new Date().toISOString(),
+    };
+    return store.connectSocialAccount(newAccount);
+  }
+
+  async disconnectSocialAccount(id: string): Promise<SocialAccount | undefined> {
+    return store.disconnectSocialAccount(id);
+  }
+
+  async getSocialVariants(submissionId: string): Promise<SocialPostVariant[]> {
+    return store.getVariantsBySubmissionId(submissionId);
+  }
+
+  async createSocialVariant(data: {
+    submissionId: string;
+    sourceVersionId: string;
+    provider: SocialProvider;
+    targetAccountId: string;
+    caption: string;
+    hashtags?: string[];
+    mediaUrls?: string[];
+    altTexts?: string[];
+  }): Promise<SocialPostVariant> {
+    const charLimits: Record<SocialProvider, number> = {
+      meta_facebook: 63206,
+      meta_instagram: 2200,
+      linkedin: 3000,
+      x_twitter: 280,
+    };
+
+    const variant: SocialPostVariant = {
+      variant_id: `var-${Date.now()}`,
+      submission_id: data.submissionId,
+      source_version_id: data.sourceVersionId,
+      provider: data.provider,
+      target_account_id: data.targetAccountId,
+      caption: data.caption,
+      hashtags: data.hashtags || [],
+      media_urls: data.mediaUrls || [],
+      alt_texts: data.altTexts || [],
+      character_limit: charLimits[data.provider] || 2200,
+      is_approved: true, // initial creation from approved submission is considered approved
+      approval_status: 'approved',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    return store.saveSocialVariant(variant);
+  }
+
+  async getPublishJobs(): Promise<PublishJob[]> {
+    return store.getPublishJobs();
+  }
+
+  async getPublishResults(): Promise<PublishResult[]> {
+    return store.getPublishResults();
+  }
+
+  async schedulePublish(data: {
+    variantId?: string;
+    submissionId: string;
+    accountId: string;
+    provider: SocialProvider;
+    caption: string;
+    mediaUrls?: string[];
+    scheduledTime: string;
+    timezone?: string;
+  }): Promise<PublishJob> {
+    const user = this.getCurrentUser();
+    const sub = store.getSubmissionById(data.submissionId);
+
+    // Rule: Never publish an unapproved submission!
+    if (sub && sub.status !== 'approved') {
+      throw new Error(`Cannot schedule unapproved submission. Current state: ${sub.status}. Human approval is mandatory.`);
+    }
+
+    const job: PublishJob = {
+      job_id: `pub-job-${Date.now()}`,
+      variant_id: data.variantId || `var-${Date.now()}`,
+      account_id: data.accountId,
+      submission_id: data.submissionId,
+      submission_title: sub?.title || 'Brand Social Update',
+      provider: data.provider,
+      caption: data.caption,
+      media_urls: data.mediaUrls,
+      scheduled_time: data.scheduledTime,
+      timezone: data.timezone || 'UTC',
+      status: 'scheduled',
+      retry_count: 0,
+      idempotency_key: `idem-${Date.now()}-${data.provider}`,
+      created_by: user.user_id,
+      created_by_name: user.full_name,
+      created_at: new Date().toISOString(),
+    };
+
+    return store.createPublishJob(job);
+  }
+
+  async publishNow(data: {
+    variantId?: string;
+    submissionId: string;
+    accountId: string;
+    provider: SocialProvider;
+    caption: string;
+    mediaUrls?: string[];
+  }): Promise<{ job: PublishJob; result: PublishResult }> {
+    const user = this.getCurrentUser();
+    const sub = store.getSubmissionById(data.submissionId);
+
+    // Rule 6 & 7: Human approval is mandatory before publication. Publish only exact approved version.
+    if (sub && sub.status !== 'approved') {
+      throw new Error(`Cannot publish unapproved submission. Current state: ${sub.status}. Human approval is mandatory.`);
+    }
+
+    const account = store.getSocialAccountById(data.accountId);
+    if (account && account.status !== 'connected') {
+      throw new Error(`Social account "${account.display_name}" is disconnected. Reconnect before publishing.`);
+    }
+
+    // Provider-specific URL generators
+    const postId = `post_${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const urlMap: Record<SocialProvider, string> = {
+      linkedin: `https://www.linkedin.com/feed/update/urn:li:share:${postId}`,
+      meta_facebook: `https://www.facebook.com/permalink.php?story_fbid=${postId}&id=${account?.external_account_id || 'lumora'}`,
+      meta_instagram: `https://www.instagram.com/p/C${postId.slice(0, 6)}/`,
+      x_twitter: `https://x.com/LumoraHQ/status/${postId}`,
+    };
+
+    const jobId = `pub-job-${Date.now()}`;
+    const job: PublishJob = {
+      job_id: jobId,
+      variant_id: data.variantId || `var-${Date.now()}`,
+      account_id: data.accountId,
+      submission_id: data.submissionId,
+      submission_title: sub?.title || 'Brand Social Update',
+      provider: data.provider,
+      caption: data.caption,
+      media_urls: data.mediaUrls,
+      scheduled_time: new Date().toISOString(),
+      timezone: 'UTC',
+      status: 'published',
+      retry_count: 0,
+      idempotency_key: `idem-${Date.now()}-${data.provider}`,
+      created_by: user.user_id,
+      created_by_name: user.full_name,
+      created_at: new Date().toISOString(),
+      executed_at: new Date().toISOString(),
+    };
+
+    store.createPublishJob(job);
+
+    const result: PublishResult = {
+      result_id: `res-${Date.now()}`,
+      job_id: jobId,
+      provider: data.provider,
+      provider_post_id: postId,
+      provider_url: urlMap[data.provider],
+      published_at: new Date().toISOString(),
+      status: 'success',
+      response_metadata: {
+        httpStatus: 200,
+        providerConfirmed: true,
+        actor: user.full_name,
+        targetAccount: account?.display_name,
+      },
+    };
+
+    store.recordPublishResult(result);
+    return { job, result };
+  }
+
+  async cancelPublishJob(jobId: string): Promise<PublishJob | undefined> {
+    const job = store.updatePublishJobStatus(jobId, 'cancelled');
+    return job;
+  }
+
+  async retryPublishJob(jobId: string): Promise<PublishJob | undefined> {
+    const existing = store.getPublishJobById(jobId);
+    if (!existing) throw new Error('Job not found');
+    const job = store.updatePublishJobStatus(jobId, 'published');
+    if (job) {
+      job.retry_count = (job.retry_count || 0) + 1;
+      store.recordPublishResult({
+        result_id: `res-${Date.now()}`,
+        job_id: jobId,
+        provider: job.provider,
+        provider_post_id: `post_retry_${Date.now()}`,
+        provider_url: `https://${job.provider}.com/posts/${Date.now()}`,
+        published_at: new Date().toISOString(),
+        status: 'success',
+      });
+    }
+    return job;
+  }
+
+  async getComments(submissionId: string): Promise<ReviewComment[]> {
+    return store.getCommentsBySubmissionId(submissionId);
+  }
+
+  async addComment(data: {
+    submissionId: string;
+    versionId: string;
+    body: string;
+    issueId?: string;
+    parentCommentId?: string;
+  }): Promise<ReviewComment> {
+    const user = this.getCurrentUser();
+    const comment: ReviewComment = {
+      comment_id: `comm-${Date.now()}`,
+      version_id: data.versionId,
+      author_id: user.user_id,
+      author_name: user.full_name,
+      author_role: user.role,
+      issue_id: data.issueId,
+      parent_comment_id: data.parentCommentId,
+      body: data.body,
+      created_at: new Date().toISOString(),
+    };
+    return store.addComment(comment);
   }
 }
 

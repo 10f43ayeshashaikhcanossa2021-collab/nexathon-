@@ -25,7 +25,10 @@ import {
   Check,
   ChevronRight,
   ShieldAlert,
+  Share2,
 } from 'lucide-react';
+import { SocialPublishModal } from '../components/SocialPublishModal';
+import { CommentsThread } from '../components/CommentsThread';
 
 interface ResultsPageProps {
   currentUser: User;
@@ -44,6 +47,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -202,6 +206,17 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
               <ChevronRight className="w-4 h-4" />
             </button>
           )}
+
+          {submission.status === 'approved' && (
+            <button
+              type="button"
+              onClick={() => setIsPublishModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-[#139A93] hover:bg-[#0D706B] text-white text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Broadcast to Social Media</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -306,6 +321,28 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Collaboration and Reviewer Comments Thread */}
+      <div className="mt-8">
+        <CommentsThread
+          submissionId={submission.submission_id}
+          versionId={currentVersion.version_id}
+          currentUser={currentUser}
+        />
+      </div>
+
+      {/* Social Publish Modal */}
+      {isPublishModalOpen && (
+        <SocialPublishModal
+          isOpen={isPublishModalOpen}
+          submission={submission}
+          version={currentVersion}
+          onClose={() => setIsPublishModalOpen(false)}
+          onPublishSuccess={() => {
+            loadSubmissionData();
+          }}
+        />
+      )}
     </div>
   );
 };

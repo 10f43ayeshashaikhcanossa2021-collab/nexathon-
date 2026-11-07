@@ -18,6 +18,12 @@ import {
   ApprovalRecord,
   AuditLog,
   LabelledTestCase,
+  SocialAccount,
+  SocialPostVariant,
+  PublishJob,
+  PublishJobStatus,
+  PublishResult,
+  SocialProvider,
 } from '../types/inkloom';
 
 const DEFAULT_ORG: Organisation = {
@@ -555,6 +561,117 @@ export const SEED_ASSETS: BrandAsset[] = [
   },
 ];
 
+export const SEED_SOCIAL_ACCOUNTS: SocialAccount[] = [
+  {
+    account_id: 'soc-li-01',
+    provider: 'linkedin',
+    external_account_id: 'urn:li:organization:984210',
+    display_name: 'Lumora Fitness Official',
+    account_handle: '@lumora-fitness',
+    account_type: 'organization',
+    granted_scopes: ['w_organization_social', 'r_organization_social', 'rw_organization_admin'],
+    status: 'connected',
+    profile_picture_url: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=120&auto=format&fit=crop&q=80',
+    last_verified_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+    owner_id: 'u-admin-01',
+    created_at: new Date(Date.now() - 86400000 * 14).toISOString(),
+  },
+  {
+    account_id: 'soc-fb-02',
+    provider: 'meta_facebook',
+    external_account_id: 'page_1092837465',
+    display_name: 'Lumora Fitness Global',
+    account_handle: '@LumoraFitnessHQ',
+    account_type: 'page',
+    granted_scopes: ['pages_manage_posts', 'pages_read_engagement', 'publish_video'],
+    status: 'connected',
+    profile_picture_url: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=120&auto=format&fit=crop&q=80',
+    last_verified_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+    owner_id: 'u-admin-01',
+    created_at: new Date(Date.now() - 86400000 * 30).toISOString(),
+  },
+  {
+    account_id: 'soc-ig-03',
+    provider: 'meta_instagram',
+    external_account_id: 'ig_pro_17841400',
+    display_name: 'Lumora Fitness Active',
+    account_handle: '@lumorafit',
+    account_type: 'professional',
+    granted_scopes: ['instagram_basic', 'instagram_content_publish', 'instagram_manage_insights'],
+    status: 'connected',
+    profile_picture_url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=120&auto=format&fit=crop&q=80',
+    last_verified_at: new Date(Date.now() - 3600000 * 1).toISOString(),
+    owner_id: 'u-admin-01',
+    created_at: new Date(Date.now() - 86400000 * 21).toISOString(),
+  },
+  {
+    account_id: 'soc-tw-04',
+    provider: 'x_twitter',
+    external_account_id: 'tw_901928374',
+    display_name: 'Lumora Updates',
+    account_handle: '@LumoraHQ',
+    account_type: 'member',
+    granted_scopes: ['tweet.read', 'tweet.write', 'users.read'],
+    status: 'disconnected',
+    last_verified_at: new Date(Date.now() - 86400000 * 4).toISOString(),
+    owner_id: 'u-admin-01',
+    created_at: new Date(Date.now() - 86400000 * 45).toISOString(),
+  },
+];
+
+export const SEED_PUBLISH_JOBS: PublishJob[] = [
+  {
+    job_id: 'pub-job-101',
+    variant_id: 'var-101',
+    account_id: 'soc-li-01',
+    submission_id: 'sub-lumora-1015',
+    submission_title: 'Summer Movement Program Launch Announcement',
+    provider: 'linkedin',
+    caption: 'Discover the science of mindful endurance. Lumora Pro members now get access to our guided 14-day movement sequences. #MovementHealth #FitnessJourney',
+    media_urls: ['https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600&auto=format&fit=crop&q=80'],
+    scheduled_time: new Date(Date.now() - 86400000 * 2).toISOString(),
+    timezone: 'UTC',
+    status: 'published',
+    retry_count: 0,
+    idempotency_key: 'idem-101-linkedin',
+    created_by: 'u-creator-01',
+    created_by_name: 'Ishaan Verma',
+    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+    executed_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+  },
+  {
+    job_id: 'pub-job-102',
+    variant_id: 'var-102',
+    account_id: 'soc-ig-03',
+    submission_id: 'sub-lumora-1015',
+    submission_title: 'Summer Movement Program Launch Announcement',
+    provider: 'meta_instagram',
+    caption: 'Progress over perfection. Every routine is built for long-term strength. Link in bio to join today. #LumoraFitness #DailyMovement',
+    media_urls: ['https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=600&auto=format&fit=crop&q=80'],
+    scheduled_time: new Date(Date.now() + 86400000 * 1).toISOString(),
+    timezone: 'Asia/Kolkata',
+    status: 'scheduled',
+    retry_count: 0,
+    idempotency_key: 'idem-102-instagram',
+    created_by: 'u-creator-01',
+    created_by_name: 'Ishaan Verma',
+    created_at: new Date().toISOString(),
+  },
+];
+
+export const SEED_PUBLISH_RESULTS: PublishResult[] = [
+  {
+    result_id: 'res-101',
+    job_id: 'pub-job-101',
+    provider: 'linkedin',
+    provider_post_id: 'urn:li:share:71829304910293847',
+    provider_url: 'https://www.linkedin.com/feed/update/urn:li:share:71829304910293847',
+    published_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    status: 'success',
+    response_metadata: { httpStatus: 201, organizationUrn: 'urn:li:organization:984210' },
+  },
+];
+
 export const LABELLED_TEST_SET: LabelledTestCase[] = [
   {
     id: 'TS-01',
@@ -650,6 +767,10 @@ class ReactiveStore {
   comments: ReviewComment[] = [];
   approvals: ApprovalRecord[] = [];
   auditLogs: AuditLog[] = [];
+  socialAccounts: SocialAccount[] = [...SEED_SOCIAL_ACCOUNTS];
+  socialVariants: SocialPostVariant[] = [];
+  publishJobs: PublishJob[] = [...SEED_PUBLISH_JOBS];
+  publishResults: PublishResult[] = [...SEED_PUBLISH_RESULTS];
 
   constructor() {
     this.initHistoricalData();
@@ -737,6 +858,10 @@ class ReactiveStore {
         if (data.comments) this.comments = data.comments;
         if (data.approvals) this.approvals = data.approvals;
         if (data.auditLogs) this.auditLogs = data.auditLogs;
+        if (data.socialAccounts) this.socialAccounts = data.socialAccounts;
+        if (data.socialVariants) this.socialVariants = data.socialVariants;
+        if (data.publishJobs) this.publishJobs = data.publishJobs;
+        if (data.publishResults) this.publishResults = data.publishResults;
       }
     } catch (_) {}
   }
@@ -757,6 +882,10 @@ class ReactiveStore {
           comments: this.comments,
           approvals: this.approvals,
           auditLogs: this.auditLogs,
+          socialAccounts: this.socialAccounts,
+          socialVariants: this.socialVariants,
+          publishJobs: this.publishJobs,
+          publishResults: this.publishResults,
         })
       );
     } catch (_) {}
@@ -770,6 +899,10 @@ class ReactiveStore {
     this.facts = [...SEED_FACTS];
     this.terms = [...SEED_TERMS];
     this.assets = [...SEED_ASSETS];
+    this.socialAccounts = [...SEED_SOCIAL_ACCOUNTS];
+    this.publishJobs = [...SEED_PUBLISH_JOBS];
+    this.publishResults = [...SEED_PUBLISH_RESULTS];
+    this.socialVariants = [];
     this.submissions = [];
     this.versions = [];
     this.reports = [];
@@ -801,10 +934,145 @@ class ReactiveStore {
     return this.comments.filter((c) => c.version_id === verId);
   }
 
+  getCommentsBySubmissionId(subId: string) {
+    const versionIds = this.getVersionsBySubmissionId(subId).map((v) => v.version_id);
+    return this.comments.filter((c) => versionIds.includes(c.version_id));
+  }
+
+  addComment(comment: ReviewComment) {
+    this.comments.push(comment);
+    this.persist();
+    return comment;
+  }
+
   getAuditLogs() {
     return [...this.auditLogs].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+  }
+
+  // --- Social Media Publishing Methods ---
+  getSocialAccounts() {
+    return this.socialAccounts;
+  }
+
+  getSocialAccountById(id: string) {
+    return this.socialAccounts.find((a) => a.account_id === id);
+  }
+
+  connectSocialAccount(account: SocialAccount) {
+    const existingIdx = this.socialAccounts.findIndex((a) => a.account_id === account.account_id);
+    if (existingIdx >= 0) {
+      this.socialAccounts[existingIdx] = account;
+    } else {
+      this.socialAccounts.push(account);
+    }
+    this.auditLogs.unshift({
+      log_id: Date.now(),
+      org_id: DEFAULT_ORG.org_id,
+      actor_id: account.owner_id,
+      actor_name: 'Authorized Admin',
+      action: 'social_account_connected',
+      entity_type: 'social_account',
+      entity_id: account.account_id,
+      metadata: { provider: account.provider, name: account.display_name },
+      created_at: new Date().toISOString(),
+    });
+    this.persist();
+    return account;
+  }
+
+  disconnectSocialAccount(id: string) {
+    const target = this.socialAccounts.find((a) => a.account_id === id);
+    if (target) {
+      target.status = 'disconnected';
+      this.auditLogs.unshift({
+        log_id: Date.now(),
+        org_id: DEFAULT_ORG.org_id,
+        actor_id: 'u-admin-01',
+        actor_name: 'Authorized Admin',
+        action: 'social_account_disconnected',
+        entity_type: 'social_account',
+        entity_id: id,
+        metadata: { provider: target.provider, name: target.display_name },
+        created_at: new Date().toISOString(),
+      });
+      this.persist();
+    }
+    return target;
+  }
+
+  getVariantsBySubmissionId(subId: string) {
+    return this.socialVariants.filter((v) => v.submission_id === subId);
+  }
+
+  getVariantById(variantId: string) {
+    return this.socialVariants.find((v) => v.variant_id === variantId);
+  }
+
+  saveSocialVariant(variant: SocialPostVariant) {
+    const idx = this.socialVariants.findIndex((v) => v.variant_id === variant.variant_id);
+    if (idx >= 0) {
+      this.socialVariants[idx] = variant;
+    } else {
+      this.socialVariants.push(variant);
+    }
+    this.persist();
+    return variant;
+  }
+
+  getPublishJobs() {
+    return [...this.publishJobs].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  getPublishJobById(jobId: string) {
+    return this.publishJobs.find((j) => j.job_id === jobId);
+  }
+
+  createPublishJob(job: PublishJob) {
+    this.publishJobs.unshift(job);
+    this.auditLogs.unshift({
+      log_id: Date.now(),
+      org_id: DEFAULT_ORG.org_id,
+      actor_id: job.created_by,
+      actor_name: job.created_by_name,
+      action: job.status === 'published' ? 'social_published' : 'social_scheduled',
+      entity_type: 'publish_job',
+      entity_id: job.job_id,
+      metadata: {
+        provider: job.provider,
+        scheduled_time: job.scheduled_time,
+        submission_id: job.submission_id,
+      },
+      created_at: new Date().toISOString(),
+    });
+    this.persist();
+    return job;
+  }
+
+  updatePublishJobStatus(jobId: string, status: PublishJobStatus, error?: string) {
+    const target = this.publishJobs.find((j) => j.job_id === jobId);
+    if (target) {
+      target.status = status;
+      if (error) target.last_error = error;
+      if (status === 'published') target.executed_at = new Date().toISOString();
+      this.persist();
+    }
+    return target;
+  }
+
+  getPublishResults() {
+    return [...this.publishResults].sort(
+      (a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
+    );
+  }
+
+  recordPublishResult(result: PublishResult) {
+    this.publishResults.unshift(result);
+    this.persist();
+    return result;
   }
 }
 

@@ -259,6 +259,264 @@ app.post('/api/eval', async (req, res) => {
   });
 });
 
+// -------------------------------------------------------------
+// SOCIAL PUBLISHING & BROADCAST ROUTES
+// -------------------------------------------------------------
+
+app.get('/api/social/providers', (req, res) => {
+  res.json({
+    data: [
+      {
+        provider: 'linkedin',
+        name: 'LinkedIn',
+        character_limit: 3000,
+        allowed_media: ['image/jpeg', 'image/png'],
+        features: ['company_page', 'hashtags', 'post_preview'],
+      },
+      {
+        provider: 'meta_facebook',
+        name: 'Meta Facebook',
+        character_limit: 63206,
+        allowed_media: ['image/jpeg', 'image/png'],
+        features: ['page_feed', 'link_preview', 'scheduled_posts'],
+      },
+      {
+        provider: 'meta_instagram',
+        name: 'Meta Instagram',
+        character_limit: 2200,
+        allowed_media: ['image/jpeg', 'image/png'],
+        features: ['feed_post', 'carousel', 'alt_text'],
+      },
+      {
+        provider: 'x_twitter',
+        name: 'X (Twitter)',
+        character_limit: 280,
+        allowed_media: ['image/jpeg', 'image/png'],
+        features: ['short_form', 'thread', 'hashtags'],
+      },
+    ],
+  });
+});
+
+app.get('/api/social/accounts', (req, res) => {
+  const accounts = store.getSocialAccounts();
+  res.json({ data: accounts });
+});
+
+app.post('/api/social/accounts/connect', (req, res) => {
+  const { user } = getAuthContext(req);
+  const { provider, display_name, handle } = req.body;
+  const newAccount = store.connectSocialAccount({
+    account_id: `acc-${provider}-${Date.now()}`,
+    provider,
+    external_account_id: `ext_${Date.now()}`,
+    display_name: display_name || `${provider} Account`,
+    account_handle: handle || `@brand_${provider}`,
+    account_type: 'page',
+    granted_scopes: ['publish_posts', 'read_insights'],
+    status: 'connected',
+    last_verified_at: new Date().toISOString(),
+    owner_id: user.user_id,
+    created_at: new Date().toISOString(),
+  });
+  res.json({ data: newAccount });
+});
+
+app.post('/api/social/accounts/:id/disconnect', (req, res) => {
+  const updated = store.disconnectSocialAccount(req.params.id);
+  res.json({ data: updated });
+});
+
+app.get('/api/social/variants/:submissionId', (req, res) => {
+  const variants = store.getVariantsBySubmissionId(req.params.submissionId);
+  res.json({ data: variants });
+});
+
+app.post('/api/social/variants', (req, res) => {
+  const variant = store.saveSocialVariant(req.body);
+  res.json({ data: variant });
+});
+
+app.get('/api/social/jobs', (req, res) => {
+  const jobs = store.getPublishJobs();
+  res.json({ data: jobs });
+});
+
+app.get('/api/social/results', (req, res) => {
+  const results = store.getPublishResults();
+  res.json({ data: results });
+});
+
+app.post('/api/social/publish', (req, res) => {
+  const { user } = getAuthContext(req);
+  const { submission_id, variant_id, account_id, provider, caption, media_urls } = req.body;
+
+  const sub = store.getSubmissionById(submission_id);
+  if (!sub) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Submission not found' } });
+  }
+
+  // PLATFORM GOVERNANCE GUARD: Only approved submissions can be published
+  if (sub.status !== 'approved') {
+    return res.status(403).json({
+      error: {
+        code: 'UNAPPROVED_CONTENT_GUARD',
+        message: 'Platform governance rule: Only human-approved submissions may be broadcast to social channels.',
+      },
+    });
+  }
+
+  const account = store.getSocialAccountById(account_id);
+  const jobId = `job-${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const job = {
+    job_id: jobId,
+    variant_id: variant_id || `var-${Date.now()}`,
+    account_id,
+    submission_id,
+    submission_title: sub.title,
+    provider,
+    caption,
+    media_urls,
+    scheduled_time: now,
+    timezone: 'UTC',
+    status: 'published' as const,
+    retry_count: 0,
+    idempotency_key: `idem-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    created_by: user.user_id,
+    created_by_name: user.full_name,
+    created_at: now,
+    executed_at: now,
+  };
+
+  store.createPublishJob(job);
+
+  const urlMap: Record<string, string> = {
+    linkedin: `https://www.linkedin.com/feed/update/urn:li:share:${Date.now()}`,
+    meta_facebook: `https://www.facebook.com/lumorafit/posts/${Date.now()}`,
+    meta_instagram: `https://www.instagram.com/p/${Math.random().toString(36).slice(2, 9)}`,
+    x_twitter: `https://x.com/lumorafit/status/${Date.now()}`,
+  };
+
+  const result = {
+    result_id: `res-${Date.now()}`,
+    job_id: jobId,
+    provider,
+    provider_post_id: `post_${Date.now()}`,
+    provider_url: urlMap[provider] || `https://${provider}.com/posts/${Date.now()}`,
+    published_at: now,
+    status: 'success' as const,
+    response_metadata: {
+      httpStatus: 200,
+      providerConfirmed: true,
+      actor: user.full_name,
+      targetAccount: account?.display_name,
+    },
+  };
+
+  store.recordPublishResult(result);
+  res.json({ data: { job, result } });
+});
+
+app.post('/api/social/schedule', (req, res) => {
+  const { user } = getAuthContext(req);
+  const { submission_id, variant_id, account_id, provider, caption, media_urls, scheduled_time, timezone } = req.body;
+
+  const sub = store.getSubmissionById(submission_id);
+  if (!sub) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Submission not found' } });
+  }
+
+  // PLATFORM GOVERNANCE GUARD
+  if (sub.status !== 'approved') {
+    return res.status(403).json({
+      error: {
+        code: 'UNAPPROVED_CONTENT_GUARD',
+        message: 'Platform governance rule: Human approval is mandatory before scheduling content for social broadcast.',
+      },
+    });
+  }
+
+  const jobId = `job-${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const job = {
+    job_id: jobId,
+    variant_id: variant_id || `var-${Date.now()}`,
+    account_id,
+    submission_id,
+    submission_title: sub.title,
+    provider,
+    caption,
+    media_urls,
+    scheduled_time: scheduled_time || now,
+    timezone: timezone || 'UTC',
+    status: 'scheduled' as const,
+    retry_count: 0,
+    idempotency_key: `idem-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    created_by: user.user_id,
+    created_by_name: user.full_name,
+    created_at: now,
+  };
+
+  store.createPublishJob(job);
+  res.json({ data: job });
+});
+
+app.post('/api/social/jobs/:id/cancel', (req, res) => {
+  const job = store.updatePublishJobStatus(req.params.id, 'cancelled');
+  res.json({ data: job });
+});
+
+app.post('/api/social/jobs/:id/retry', (req, res) => {
+  const existing = store.getPublishJobById(req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Job not found' } });
+  }
+  const job = store.updatePublishJobStatus(req.params.id, 'published');
+  if (job) {
+    job.retry_count = (job.retry_count || 0) + 1;
+    store.recordPublishResult({
+      result_id: `res-${Date.now()}`,
+      job_id: req.params.id,
+      provider: job.provider,
+      provider_post_id: `post_retry_${Date.now()}`,
+      provider_url: `https://${job.provider}.com/posts/${Date.now()}`,
+      published_at: new Date().toISOString(),
+      status: 'success',
+    });
+  }
+  res.json({ data: job });
+});
+
+// -------------------------------------------------------------
+// COLLABORATION COMMENTS ROUTES
+// -------------------------------------------------------------
+
+app.get('/api/submissions/:id/comments', (req, res) => {
+  const comments = store.getCommentsBySubmissionId(req.params.id);
+  res.json({ data: comments });
+});
+
+app.post('/api/submissions/:id/comments', (req, res) => {
+  const { user } = getAuthContext(req);
+  const { versionId, body, issueId, parentCommentId } = req.body;
+  const comment = {
+    comment_id: `comm-${Date.now()}`,
+    version_id: versionId,
+    author_id: user.user_id,
+    author_name: user.full_name,
+    author_role: user.role,
+    issue_id: issueId,
+    parent_comment_id: parentCommentId,
+    body,
+    created_at: new Date().toISOString(),
+  };
+  store.addComment(comment);
+  res.json({ data: comment });
+});
+
 async function startServer() {
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));

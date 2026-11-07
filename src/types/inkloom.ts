@@ -271,3 +271,87 @@ export interface DiffChunk {
   type: 'unchanged' | 'inserted' | 'deleted';
   value: string;
 }
+
+// -------------------------------------------------------------
+// SOCIAL MEDIA PUBLISHING TYPES (SECTION 3 OF SPECIFICATION)
+// -------------------------------------------------------------
+
+export type SocialProvider =
+  | 'meta_facebook'
+  | 'meta_instagram'
+  | 'linkedin'
+  | 'x_twitter';
+
+export interface SocialAccount {
+  account_id: string;
+  provider: SocialProvider;
+  external_account_id: string;
+  display_name: string;
+  account_handle?: string;
+  account_type: 'page' | 'professional' | 'organization' | 'member';
+  granted_scopes: string[];
+  status: 'connected' | 'disconnected' | 'expired' | 'error';
+  profile_picture_url?: string;
+  last_verified_at: string;
+  owner_id: string;
+  created_at: string;
+}
+
+export interface SocialPostVariant {
+  variant_id: string;
+  submission_id: string;
+  source_version_id: string;
+  provider: SocialProvider;
+  target_account_id: string;
+  caption: string;
+  hashtags: string[];
+  media_urls: string[];
+  alt_texts: string[];
+  character_limit: number;
+  is_approved: boolean;
+  approval_status: 'draft' | 'pending_approval' | 'approved' | 'rejected';
+  created_at: string;
+  updated_at: string;
+}
+
+export type PublishJobStatus =
+  | 'queued'
+  | 'scheduled'
+  | 'publishing'
+  | 'published'
+  | 'failed'
+  | 'cancelled'
+  | 'needs_reconnect';
+
+export interface PublishJob {
+  job_id: string;
+  variant_id: string;
+  account_id: string;
+  submission_id: string;
+  submission_title: string;
+  provider: SocialProvider;
+  caption: string;
+  media_urls?: string[];
+  scheduled_time: string; // ISO format
+  timezone: string;
+  status: PublishJobStatus;
+  retry_count: number;
+  idempotency_key: string;
+  last_error?: string;
+  created_by: string;
+  created_by_name: string;
+  created_at: string;
+  executed_at?: string;
+}
+
+export interface PublishResult {
+  result_id: string;
+  job_id: string;
+  provider: SocialProvider;
+  provider_post_id?: string;
+  provider_url?: string;
+  published_at: string;
+  status: 'success' | 'failed' | 'partial';
+  response_metadata?: any;
+}
+
