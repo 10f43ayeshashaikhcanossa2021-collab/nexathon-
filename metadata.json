@@ -1,0 +1,6 @@
+{
+  "name": "INKLOOM AI",
+  "description": "Reference-grounded brand governance and content intelligence platform verifying copy against guidelines, verified facts, and terminology with human-in-the-loop sign-off.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
