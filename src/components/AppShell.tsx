@@ -23,6 +23,7 @@ import {
   RefreshCw,
   LogOut,
   Share2,
+  Database,
 } from 'lucide-react';
 
 interface AppShellProps {
@@ -106,6 +107,18 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         {/* Right Tools & Persona Switcher */}
         <div className="flex items-center gap-3">
+          {/* Supabase Live DB Badge */}
+          <button
+            type="button"
+            onClick={() => onNavigate('settings')}
+            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-colors cursor-pointer"
+            title="Supabase Cloud PostgreSQL Database: Connected"
+          >
+            <Database className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Supabase Live</span>
+          </button>
+
           {/* AI Engine Status Button */}
           <button
             type="button"

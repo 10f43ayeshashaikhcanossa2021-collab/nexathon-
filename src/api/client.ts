@@ -27,6 +27,7 @@ import {
   SocialProvider,
 } from '../types/inkloom';
 import { store, LABELLED_TEST_SET } from '../services/store';
+import { supabaseService, SupabaseHealthReport } from '../services/supabase';
 
 class ApiClient {
   private currentUser: User = store.users[1]; // default to Ishaan Verma (creator)
@@ -940,6 +941,27 @@ class ApiClient {
       created_at: new Date().toISOString(),
     };
     return store.addComment(comment);
+  }
+
+  async getDatabaseHealth(): Promise<SupabaseHealthReport> {
+    return supabaseService.checkHealth();
+  }
+
+  async syncToDatabase(): Promise<{ success: boolean; synced: number; error?: string }> {
+    const org = store.organisations[0];
+    const profile = store.profiles[0];
+    const guidelines = store.guidelines;
+    const facts = store.facts;
+    const terms = store.terms;
+    const res = await supabaseService.syncBrandKnowledge(org, profile, guidelines, facts, terms);
+
+    // Also sync latest submissions
+    for (const sub of store.submissions.slice(0, 10)) {
+      const ver = store.getLatestVersion(sub.submission_id);
+      await supabaseService.persistSubmission(sub, ver);
+    }
+
+    return { success: !res.error, synced: res.synced, error: res.error };
   }
 }
 

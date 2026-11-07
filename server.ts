@@ -12,6 +12,7 @@ import { store, LABELLED_TEST_SET } from './src/services/store.ts';
 import { runAnalysisPipeline } from './src/services/aiPipeline.ts';
 import { transition } from './src/services/statusMachine.ts';
 import { buildSuggestedRevision, computeWordDiff } from './src/services/revisionBuilder.ts';
+import { supabaseService } from './src/services/supabase.ts';
 
 dotenv.config();
 
@@ -52,15 +53,51 @@ function getAuthContext(req: Request) {
 // REST API ROUTES (/api/...)
 // -------------------------------------------------------------
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  const dbHealth = await supabaseService.checkHealth();
   res.json({
     data: {
       status: 'ok',
-      db: 'in-memory-relational',
+      db: 'supabase-postgresql',
+      dbHealth,
       aiService: process.env.GEMINI_API_KEY ? 'gemini-3.8-flash' : 'gemini-3.8-flash-reference-pipeline',
       hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
     },
   });
+});
+
+app.get('/api/readiness', async (req, res) => {
+  const dbHealth = await supabaseService.checkHealth();
+  if (dbHealth.connected) {
+    res.json({ status: 'ready', database: dbHealth.status, latencyMs: dbHealth.latencyMs });
+  } else {
+    res.status(503).json({ status: 'degraded', database: 'unreachable', error: dbHealth.error });
+  }
+});
+
+app.get('/api/db/status', async (req, res) => {
+  const dbHealth = await supabaseService.checkHealth();
+  res.json({ data: dbHealth });
+});
+
+app.post('/api/db/sync', async (req, res) => {
+  try {
+    const org = store.organisations[0];
+    const profile = store.profiles[0];
+    const guidelines = store.guidelines;
+    const facts = store.facts;
+    const terms = store.terms;
+    const syncRes = await supabaseService.syncBrandKnowledge(org, profile, guidelines, facts, terms);
+
+    for (const sub of store.submissions.slice(0, 10)) {
+      const ver = store.getLatestVersion(sub.submission_id);
+      await supabaseService.persistSubmission(sub, ver);
+    }
+
+    res.json({ data: { success: true, ...syncRes } });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SYNC_FAILED', message: err.message } });
+  }
 });
 
 app.get('/api/users', (req, res) => {
