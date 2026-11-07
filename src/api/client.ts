@@ -3,7 +3,11 @@
  * Interfaces with the Express REST API (/api/...) and falls back
  * seamlessly to local store in all browser environments.
  */
+const API_BASE = (
+  import.meta.env.VITE_API_BASE || ''
+).replace(/\/$/, '');
 
+const apiUrl = (path: string) => `${API_BASE}${path}`;
 import {
   User,
   BrandProfile,
@@ -56,7 +60,7 @@ class ApiClient {
   }
 
   async login(email: string, password: string): Promise<{ token: string; user: User }> {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(apiUrl('/api/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -75,7 +79,7 @@ class ApiClient {
 
   async logout(): Promise<void> {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch(apiUrl('/api/auth/logout'), {
         method: 'POST',
         headers: this.getHeaders(),
       });
@@ -120,7 +124,7 @@ class ApiClient {
 
   async getHealth() {
     try {
-      const res = await fetch('/api/health');
+      const res = await fetch(apiUrl('/api/health'));
       if (res.ok) {
         const json = await res.json();
         return json.data;
@@ -157,7 +161,7 @@ class ApiClient {
 
   async getUsers(): Promise<User[]> {
     try {
-      const res = await fetch('/api/users', { headers: this.getHeaders() });
+      const res = await fetch(apiUrl('/api/users'), { headers: this.getHeaders() });
       if (res.ok) {
         const json = await res.json();
         return json.data;
