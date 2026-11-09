@@ -63,10 +63,10 @@ async function runEvaluation() {
   for (const tc of testCases) {
     const start = Date.now();
     // Resolve company-specific knowledge base
-    let profile = SEED_PROFILE;
-    let guidelines = SEED_GUIDELINES;
-    let facts = SEED_FACTS;
-    let terms = SEED_TERMS;
+    let profile: any = SEED_PROFILE;
+    let guidelines: any[] = SEED_GUIDELINES;
+    let facts: any[] = SEED_FACTS;
+    let terms: any[] = SEED_TERMS;
 
     if (tc.company === 'Northwind Bank') {
       profile = {

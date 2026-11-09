@@ -1,17 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { runDeterministicChecks } from '../src/services/aiPipeline';
-import type { BrandProfile, BrandGuideline, ApprovedFact, TerminologyItem } from '../src/types';
+import type { BrandProfile, BrandGuideline, ApprovedFact, TerminologyItem } from '../src/types/inkloom';
 
 describe('Phase 4: Domain Independence Verification (Northwind Bank)', () => {
   const northwindProfile: BrandProfile = {
     profile_id: 'bp-northwind-001',
     org_id: 'org-northwind-001',
-    brand_name: 'Northwind Bank',
-    voice_summary: 'Prudent, transparent, trustworthy financial institution.',
-    prohibited_claims: ['guaranteed 10% return', 'zero risk investment'],
-    colors: ['#0A2540', '#635BFF', '#00D4B2'],
+    name: 'Northwind Bank',
+    voice_notes: 'Prudent, transparent, trustworthy financial institution.',
+    status: 'active',
+    external_ai_allowed: true,
+    team_visibility: 'team',
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
   };
 
   const northwindGuidelines: BrandGuideline[] = [
@@ -20,9 +20,10 @@ describe('Phase 4: Domain Independence Verification (Northwind Bank)', () => {
       profile_id: 'bp-northwind-001',
       code: 'NB-01',
       title: 'Investment Risk Transparency',
-      category: 'compliance',
-      severity: 'high',
+      category: 'claims',
       rule_text: 'Never claim guaranteed return or zero-risk investments without clear regulatory disclaimers.',
+      content_types: ['social_post'],
+      version: 1,
       is_active: true,
       created_at: new Date().toISOString(),
     },
@@ -31,9 +32,10 @@ describe('Phase 4: Domain Independence Verification (Northwind Bank)', () => {
       profile_id: 'bp-northwind-001',
       code: 'NB-02',
       title: 'Professional Voice and Tone',
-      category: 'tone_voice',
-      severity: 'low',
+      category: 'tone',
       rule_text: 'Avoid informal repeated exclamation marks or hyperbolic hype language.',
+      content_types: ['social_post'],
+      version: 1,
       is_active: true,
       created_at: new Date().toISOString(),
     },
@@ -46,7 +48,6 @@ describe('Phase 4: Domain Independence Verification (Northwind Bank)', () => {
       code: 'NF-01',
       subject: 'Premier Checking Yield',
       statement: 'Northwind Premier Checking provides an annual percentage yield of 1.25% APY.',
-      category: 'pricing',
       is_active: true,
       created_at: new Date().toISOString(),
     },
@@ -56,7 +57,6 @@ describe('Phase 4: Domain Independence Verification (Northwind Bank)', () => {
       code: 'NF-02',
       subject: 'Deposit Insurance',
       statement: 'FDIC insurance protects deposits up to $250,000 per depositor, per insured bank.',
-      category: 'claims',
       is_active: true,
       created_at: new Date().toISOString(),
     },
@@ -71,7 +71,6 @@ describe('Phase 4: Domain Independence Verification (Northwind Bank)', () => {
       avoid_terms: ['users', 'customers'],
       case_sensitive: false,
       notes: 'Refer to our banking clients as account holders.',
-      created_at: new Date().toISOString(),
     },
   ];
 
@@ -81,7 +80,7 @@ describe('Phase 4: Domain Independence Verification (Northwind Bank)', () => {
 
     const { issues } = runDeterministicChecks(
       bankingDraft,
-      'web_copy',
+      'social_post',
       northwindProfile,
       northwindGuidelines,
       northwindFacts,
@@ -95,7 +94,7 @@ describe('Phase 4: Domain Independence Verification (Northwind Bank)', () => {
     expect(termIssue?.suggestion?.suggested_text).toBe('account holders');
 
     // 2. Tone check flags repeated exclamation marks "!!!"
-    const toneIssue = issues.find((iss) => iss.category === 'tone_voice');
+    const toneIssue = issues.find((iss) => iss.category === 'tone');
     expect(toneIssue).toBeDefined();
     expect(toneIssue?.excerpt).toContain('!');
 

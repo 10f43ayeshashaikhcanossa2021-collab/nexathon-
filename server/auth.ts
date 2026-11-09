@@ -23,8 +23,8 @@ declare global {
   }
 }
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'inkloom-ai-default-jwt-secret-key-32charsmin';
-export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '2h';
+export const JWT_SECRET: string = process.env.JWT_SECRET || 'inkloom-ai-default-jwt-secret-key-32charsmin';
+export const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || '2h') as any;
 
 export function signToken(user: { user_id: string; org_id: string; role: string }): string {
   return jwt.sign(
@@ -70,7 +70,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     req.auth = {
       userId: user.user_id,
       orgId: user.org_id,
-      role: user.role,
+      role: user.role as any,
     };
     next();
   } catch (err: any) {

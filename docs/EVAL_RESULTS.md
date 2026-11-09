@@ -1,6 +1,6 @@
 # INKLOOM AI - Benchmark Evaluation Report
 
-**Generated**: 2026-11-07T20:10:47.988Z  
+**Generated**: 2026-11-09T13:00:26.198Z  
 **Evaluation Standard**: Phase 5 Honest Evaluation (Dev vs. Holdout Splits)  
 **Total Test Cases**: 30 across 3 companies (Lumora Fitness, Northwind Bank, Apex Health)  
 

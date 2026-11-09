@@ -361,7 +361,7 @@ async function seedDatabase() {
         await client.from('brand_guidelines').upsert(g, { onConflict: 'guideline_id' });
       }
       for (const f of SEED_FACTS) {
-        await client.from('approved_facts').upsert(f, { onConflict: 'fact_id' });
+        await client.from('approved_facts').upsert(f as any, { onConflict: 'fact_id' });
       }
       for (const t of SEED_TERMS) {
         await client.from('terminology').upsert(t, { onConflict: 'term_id' });
