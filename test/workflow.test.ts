@@ -24,17 +24,17 @@ describe('Phase 2: End-to-End Governance Workflow Lifecycle', () => {
       .post('/api/submissions')
       .set('Authorization', `Bearer ${creatorToken}`)
       .send({
-        profile_id: 'bp-lumora-001',
+        profile_id: 'prof-lumora-fit',
         title: 'Spring Campaign Announcement',
         content_type: 'social_post',
         body_text: 'Lumora Pro gives all members 50 GB of workout-video storage and expert coaching.',
       });
 
     expect(createRes.status).toBe(201);
-    const sub = createRes.body.data;
+    const sub = createRes.body.submission;
     expect(sub.status).toBe('draft');
     const submissionId = sub.submission_id;
-    const v1Id = sub.versions[0].version_id;
+    const v1Id = createRes.body.version.version_id;
 
     // 2. Trigger AI analysis on submission
     const analyseRes = await request(app)
@@ -43,8 +43,8 @@ describe('Phase 2: End-to-End Governance Workflow Lifecycle', () => {
       .send({});
 
     expect(analyseRes.status).toBe(200);
-    expect(analyseRes.body.status).toBe('analysed');
-    expect(analyseRes.body.report).toBeDefined();
+    expect(analyseRes.body.data.report_id).toBeDefined();
+    expect(Array.isArray(analyseRes.body.data.issues)).toBe(true);
 
     // 3. Create version 2 with refined copy
     const v2Res = await request(app)
@@ -58,6 +58,23 @@ describe('Phase 2: End-to-End Governance Workflow Lifecycle', () => {
     expect(v2Res.status).toBe(201);
     expect(v2Res.body.version.version_no).toBe(2);
     const v2Id = v2Res.body.version.version_id;
+
+    // Resolve any remaining high severity issues on v2 if present
+    const v2Issues = v2Res.body.report?.issues || [];
+    for (const iss of v2Issues) {
+      if (iss.severity === 'high' && iss.suggestion) {
+        await request(app)
+          .patch(`/api/suggestions/${iss.suggestion.suggestion_id}`)
+          .set('Authorization', `Bearer ${creatorToken}`)
+          .send({ action: 'accept' });
+      } else if (iss.severity === 'high' && !iss.suggestion) {
+        // Dismiss with reason
+        await request(app)
+          .patch(`/api/suggestions/${iss.issue_id}`)
+          .set('Authorization', `Bearer ${creatorToken}`)
+          .send({ action: 'dismiss', reason: 'Verified with legal team' });
+      }
+    }
 
     // 4. Send submission for review
     const sendRes = await request(app)
@@ -85,7 +102,8 @@ describe('Phase 2: End-to-End Governance Workflow Lifecycle', () => {
       .set('Authorization', `Bearer ${reviewerToken}`);
 
     expect(diffRes.status).toBe(200);
-    expect(diffRes.body.diff).toBeDefined();
+    expect(diffRes.body.data).toBeDefined();
+    expect(Array.isArray(diffRes.body.data)).toBe(true);
 
     // 7. Reviewer approves submission
     const decisionRes = await request(app)
@@ -106,6 +124,6 @@ describe('Phase 2: End-to-End Governance Workflow Lifecycle', () => {
       .set('Authorization', `Bearer ${creatorToken}`);
 
     expect(finalSubRes.status).toBe(200);
-    expect(finalSubRes.body.data.status).toBe('approved');
+    expect(finalSubRes.body.data.submission.status).toBe('approved');
   });
 });

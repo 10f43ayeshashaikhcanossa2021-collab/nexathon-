@@ -1,85 +1,98 @@
-# INKLOOM AI - 3-Minute Demo Script (Part L.1)
+# INKLOOM AI — Master Demo Walkthrough Script
 
-Follow these steps to demonstrate all 15 features of INKLOOM AI end to end.
-
----
-
-### Step 1: Admin Maya Rao Shows Brand Hub (Feature 1, 2)
-1. In the sidebar, verify active persona is **Maya Rao (Admin)**.
-2. Click **Brand Hub**:
-   - Point out the 4 count tiles: 16 Guidelines, 14 Approved Facts, 8 Terminology rules, 2 Assets.
-   - Point out the 5-color palette tokens (`#0B1B3A`, `#139A93`, `#3E5C8A`, `#E8F5F5`, `#FBFAF7`).
-   - Point out the **Knowledge Completeness Checklist** (100% complete).
-3. Click **Guidelines & Facts**:
-   - Inspect rule **G-15** (substantiation required for superlatives/ranking claims).
-   - Inspect rule **G-07** (tone: avoid repeated exclamation marks, calm voice).
-   - Switch to **Approved Facts** tab: inspect **F-12** (Lumora Pro includes 50 GB of workout-video storage) and the **Expired** badge on **F-14** (Spring offer).
-   - Switch to **Terminology** tab: inspect **T-04** (use "members", avoid "customers" and "users").
+Follow these steps to demonstrate the complete, reference-grounded governance workflow in under 4 minutes.
 
 ---
 
-### Step 2: Creator Ishaan Verma Submits Reference Draft (Feature 3)
-1. In the bottom-left sidebar, switch persona to **Ishaan Verma (Creator)**.
-2. Click **New Submission** or the dashboard quick launcher.
-3. Click **Load Reference Draft (TS-01)**:
-   - Notice the paper sheet editor displaying:
+### Step 1: Secure Authentication & Brand Knowledge Hub (Admin Maya Rao)
+1. **Login Page**:
+   - Navigate to `http://localhost:3000`.
+   - Point out the secure login interface supporting email/password or 1-click verified demo persona buttons.
+   - Click **Maya Rao (Admin)**: logs in securely via bcrypt verification and receives an HS256 JWT.
+2. **Brand Hub & Reference Registry**:
+   - Click **Brand Hub** in the sidebar:
+     - Review the 4 count tiles: 16 Guidelines, 14 Approved Facts, 8 Terminology rules, 2 Assets.
+     - Note the 5 brand palette tokens (`#0B1B3A`, `#139A93`, `#3E5C8A`, `#E8F5F5`, `#FBFAF7`).
+   - Switch to **Guidelines & Facts**:
+     - Inspect **F-12**: "Lumora Pro includes 50 GB of workout-video storage".
+     - Inspect **F-14**: Notice the **Expired** status badge (Spring discount offer has ended).
+     - Inspect **T-04**: Preferred term "members"; avoid "customers" and "users".
+     - Inspect **G-15**: Superlatives ban ("number one rated", "world's best" require substantiation).
+
+---
+
+### Step 2: Creator Ishaan Verma Submits Reference Draft
+1. **Switch to Creator**:
+   - In the sidebar or top banner, switch to **Ishaan Verma (Creator)**.
+2. **New Submission**:
+   - Click **New Submission** (or click the quick-launch draft button on the Dashboard).
+   - In the editorial paper sheet editor, load or paste the reference draft:
      > *"Lumora Pro gives all customers unlimited cloud storage and is the number one rated fitness app!!!"*
-   - Notice the attached media item `promo_banner.png` flagged with **No alt text (will flag G-10)**.
-4. Click **Submit for Analysis**:
-   - Watch the 4 progress steps: Collecting references -> Checking terms -> Comparing facts -> Validating.
+   - Attach the reference promo banner image (`promo_banner.png`) without alt text.
+3. **Execute AI Governance Analysis**:
+   - Click **Submit for Analysis**.
+   - Watch the 4 progress steps: Reference Retrieval -> Terminology Scanning -> Dynamic Fact Checking -> Validation Gate.
 
 ---
 
-### Step 3: Results Screen & Thread Lines (Feature 4, 5, 6, 7, 9)
-1. The analysis completes and renders the Results screen:
-   - Exactly **5 findings** detected:
+### Step 3: Inspect Findings & Curved Loom Thread Lines
+1. **Results View**:
+   - Notice the **5 detected issues** precisely highlighted in the draft:
      1. `[HIGH] VERIFIED CONFLICT (F-12)`: "unlimited cloud storage" contradicts 50 GB.
-     2. `[MED] NO APPROVED SOURCE (G-15)`: "the number one rated fitness app" has no verified source.
+     2. `[MED] NO APPROVED SOURCE (G-15)`: "the number one rated fitness app" has no verified substantiation.
      3. `[LOW] RULE VIOLATION (T-04)`: "customers" should be "members".
-     4. `[LOW] RULE VIOLATION (G-07)`: "!!!" violates calm brand voice.
-     5. `[MED] RULE VIOLATION (G-10)`: image missing alt text.
-2. **Loom Motif Thread Lines**:
-   - Hover over each finding card: notice the thin curved teal SVG thread line dynamically connecting the card to the highlighted excerpt in the draft!
-3. Click the **F-12** evidence chip: notice the popover showing full statement and source reference.
-4. Note the honest uncertainty distinction: **VERIFIED CONFLICT** vs **NO APPROVED SOURCE** (never claims unsupported claims are "false").
+     4. `[LOW] RULE VIOLATION (G-07)`: repeated exclamation marks "!!!" violate calm brand voice.
+     5. `[MED] RULE VIOLATION (G-10)`: image missing accessibility alt text.
+2. **Interactive Loom Motif Thread Lines**:
+   - Hover over each finding card: notice the curved teal SVG thread line dynamically connecting the card to the highlighted excerpt in the draft.
+3. **F-12 Evidence Chip**:
+   - Click the **F-12** chip to reveal the full statement, source reference, and verified bounds.
+   - Point out honest uncertainty: **VERIFIED CONFLICT** vs **NO APPROVED SOURCE**.
 
 ---
 
-### Step 4: Correction Workspace & Revision Generation (Feature 10, 13)
-1. On Finding 1 (Fact Conflict): Click **Accept** (`50 GB of workout-video storage`).
-2. On Finding 2 (Unsupported Claim): Click **Accept** (removal of unverified claim).
-3. On Finding 3 (Terminology): Click **Accept** (`members`).
-4. On Finding 4 (Tone): Click **Accept** (`!`).
-5. On Finding 5 (Accessibility): Dismiss or leave note.
-6. Toggle **Corrected Preview** in the top-right of the paper sheet:
-   - Notice the green additions and red deletions, producing the exact reference revision:
-     > *"Lumora Pro gives all members 50 GB of workout-video storage!"*
-7. Click **Save as v2**:
-   - Creates immutable version 2 and auto-runs analysis.
-8. Click **Send for Review**:
-   - Verifies all high-severity findings have been resolved and transitions status to `in_review`.
+### Step 4: Correction Workspace & Self-Approval Block Demonstration
+1. **Apply Corrections**:
+   - On Finding 1 (Fact Conflict): Click **Accept** (`50 GB of workout-video storage`).
+   - On Finding 2 (Unsupported Claim): Click **Accept** (removes unsubstantiated claim).
+   - On Finding 3 (Terminology): Click **Accept** (`members`).
+   - On Finding 4 (Tone): Click **Accept** (`!`).
+   - On Finding 5 (Alt Text): Dismiss with justification: `"Alt text added in CMS asset manager"`.
+2. **Save Version 2**:
+   - Click **Save as v2**: creates an immutable version and runs incremental analysis.
+3. **Self-Approval Guard Demonstration (Key Evaluator Moment)**:
+   - As Ishaan Verma (Creator), try to approve the draft:
+   - Notice that the approve button is disabled or, if attempted via API, the server returns **HTTP 403 Forbidden** (`SELF_APPROVAL_FORBIDDEN`).
+4. **Send for Review**:
+   - Click **Send for Review**: with all high findings resolved, status transitions to `in_review`.
 
 ---
 
-### Step 5: Reviewer Neil D'Souza Inspects & Approves (Feature 8, 11, 12)
-1. Switch persona to **Neil D'Souza (Reviewer)**.
-2. Open **Review Queue**: see the submission at the top of the queue.
-3. Click to open **Approval Details**:
-   - Switch to **Visual Compare** tab:
-     - Compare approved logo against submitted asset.
-     - Move the interactive **Overlay Blend Slider**.
-     - Check off the reviewer compliance checklist (logo, clear space, colours).
-     - Review the **Advisory Palette Distance Check** (honest label: "Advisory - not a verdict").
-4. Point out the **Self-Approval Guard**: reviewers cannot approve their own drafts.
-5. Enter comment: `"Approved for publication. Copy matches all guidelines."`
-6. Click **Approve Version**.
+### Step 5: Reviewer Neil D'Souza Inspects & Signs Off
+1. **Switch to Reviewer**:
+   - Switch persona to **Neil D'Souza (Reviewer)**.
+2. **Review Queue**:
+   - Open **Review Queue**: see the submission at the top of the queue.
+3. **Approval Details & Diff**:
+   - Click the submission to open **Approval Details**.
+   - Switch to **Word Diff**: review side-by-side green additions and red deletions between v1 and v2.
+   - Switch to **Visual Compare**: inspect logo clear space and overlay blend slider.
+   - Fill in the compliance checklist (logo, clear space, brand colors).
+4. **Human Sign-Off**:
+   - Enter decision note (≥5 chars): `"Approved for publication. All facts and voice rules verified."`
+   - Click **Approve Version**: status transitions to `approved`.
+   - The decision is permanently recorded in the immutable `approval_records` table with timestamp and reviewer ID.
 
 ---
 
-### Step 6: Governance Analytics & Labelled Benchmark Runner (Feature 14, 15)
-1. Open **Governance Analytics**:
-   - Inspect **Category Distribution** stacked bars and top 8 rules.
-   - Point out **"Guidelines That May Be Unclear"**: rules G-02 and G-11 flagged due to >50% dismissal rates and creator reasons.
-2. In the sidebar, click **Labelled Test Runner (TS-01..08)**:
-   - Click **Run All Tests Now**.
-   - Verify 100% accuracy across all 8 test cases, including zero false flags on the clean control (TS-02) and prompt injection test (TS-08).
+### Step 6: Governance Analytics & Split Evaluation
+1. **Governance Analytics**:
+   - Click **Governance Analytics** in the sidebar.
+   - Inspect the **"Guidelines That May Be Unclear"** table: rules G-02 and G-11 flagged due to >50% dismissal rates and creator feedback.
+2. **Honest Model Evaluation Modal**:
+   - In the header or sidebar, click **Evaluation Benchmark**.
+   - View the honest 30-case benchmark split:
+     - **Dev Split (16 cases)**: Precision 76.2%, Recall 76.2%, F1 76.2%
+     - **Holdout Split (14 cases)**: Precision 75.0%, Recall 60.0%, F1 66.7%
+     - **Overall F1**: 73.3%, Median Latency: 0ms
+   - Note the prominent disclosure caption: *"Small demonstration set across 3 companies; not a production accuracy claim"*.

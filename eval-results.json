@@ -184,7 +184,7 @@
       "precision": 0,
       "recall": 0,
       "f1": 0,
-      "latencyMs": 0,
+      "latencyMs": 1,
       "passed": false,
       "notes": "Deposit insurance statutory limit is $250,000"
     },
@@ -216,7 +216,7 @@
       "precision": 0,
       "recall": 0,
       "f1": 0,
-      "latencyMs": 0,
+      "latencyMs": 1,
       "passed": false,
       "notes": "Prohibited medical cure guarantee"
     },
@@ -264,7 +264,7 @@
       "precision": 1,
       "recall": 1,
       "f1": 1,
-      "latencyMs": 0,
+      "latencyMs": 1,
       "passed": true,
       "notes": "Near miss: historical fact that matches audited foundation records"
     },
@@ -280,7 +280,7 @@
       "precision": 1,
       "recall": 1,
       "f1": 1,
-      "latencyMs": 1,
+      "latencyMs": 0,
       "passed": true,
       "notes": "Near miss: uses preferred word 'accessible' in non-price context"
     },
@@ -344,7 +344,7 @@
       "precision": 1,
       "recall": 1,
       "f1": 1,
-      "latencyMs": 1,
+      "latencyMs": 0,
       "passed": true,
       "notes": "Holdout: clean APY fact citation"
     },
@@ -440,7 +440,7 @@
       "precision": 1,
       "recall": 1,
       "f1": 1,
-      "latencyMs": 1,
+      "latencyMs": 0,
       "passed": true,
       "notes": "Holdout: cites expired 2025 discount price instead of verified 499 price"
     },
@@ -488,7 +488,7 @@
       "precision": 1,
       "recall": 1,
       "f1": 1,
-      "latencyMs": 1,
+      "latencyMs": 0,
       "passed": true,
       "notes": "Holdout: terminology check"
     },
@@ -504,7 +504,7 @@
       "precision": 0,
       "recall": 0,
       "f1": 0,
-      "latencyMs": 0,
+      "latencyMs": 1,
       "passed": false,
       "notes": "Holdout: compliant Lumora Free feature list"
     }

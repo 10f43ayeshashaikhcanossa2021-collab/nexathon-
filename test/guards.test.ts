@@ -30,15 +30,15 @@ describe('Phase 2 & 4: Server-Side Governance Guards', () => {
       .post('/api/submissions')
       .set('Authorization', `Bearer ${creatorToken}`)
       .send({
-        profile_id: 'bp-lumora-001',
+        profile_id: 'prof-lumora-fit',
         title: 'Self-approval test draft',
         content_type: 'social_post',
         body_text: 'Lumora Fitness is the best gym ever.',
       });
 
     expect(createRes.status).toBe(201);
-    const subId = createRes.body.data.submission_id;
-    const versionId = createRes.body.data.versions[0].version_id;
+    const subId = createRes.body.submission.submission_id;
+    const versionId = createRes.body.version.version_id;
 
     // Creator attempts to approve it
     const approveRes = await request(app)
@@ -59,14 +59,14 @@ describe('Phase 2 & 4: Server-Side Governance Guards', () => {
       .post('/api/submissions')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        profile_id: 'bp-lumora-001',
+        profile_id: 'prof-lumora-fit',
         title: 'Admin authored announcement',
         content_type: 'blog',
         body_text: 'Exciting news from Lumora management.',
       });
 
     expect(createRes.status).toBe(201);
-    const versionId = createRes.body.data.versions[0].version_id;
+    const versionId = createRes.body.version.version_id;
 
     // Admin attempts to self-approve the submission they created
     const approveRes = await request(app)
@@ -88,13 +88,14 @@ describe('Phase 2 & 4: Server-Side Governance Guards', () => {
       .post('/api/submissions')
       .set('Authorization', `Bearer ${creatorToken}`)
       .send({
-        profile_id: 'bp-lumora-001',
+        profile_id: 'prof-lumora-fit',
         title: 'Comment length test',
         content_type: 'social_post',
         body_text: 'Clean post for comment check.',
       });
 
-    const versionId = createRes.body.data.versions[0].version_id;
+    expect(createRes.status).toBe(201);
+    const versionId = createRes.body.version.version_id;
 
     // Reviewer tries to approve with less than 5 characters
     const shortApproveRes = await request(app)
@@ -139,7 +140,7 @@ describe('Phase 2 & 4: Server-Side Governance Guards', () => {
       .set('Authorization', `Bearer ${creatorToken}`)
       .send({
         filename: 'report.pdf',
-        fileBase64: Buffer.from('%PDF-1.4 test dummy').toString('base64'),
+        base64Content: Buffer.from('%PDF-1.4 test dummy').toString('base64'),
       });
 
     expect(res.status).toBe(415);

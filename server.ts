@@ -689,10 +689,10 @@ app.post('/api/submissions/:id/analyse', requireAuth, requireRole('creator', 'ad
     const pipelineResult = await runAnalysisPipeline({
       draft: version.body_text,
       contentType: sub.content_type,
-      profile,
-      guidelines,
-      facts,
-      terms,
+      profile: profile as any,
+      guidelines: guidelines as any,
+      facts: facts as any,
+      terms: terms as any,
       media: version.media,
       links: version.links,
     });
@@ -782,10 +782,10 @@ app.post('/api/submissions/:id/versions', requireAuth, requireRole('creator', 'a
   const pipelineResult = await runAnalysisPipeline({
     draft: newVer.body_text,
     contentType: sub.content_type,
-    profile: profile!,
-    guidelines,
-    facts,
-    terms,
+    profile: profile as any,
+    guidelines: guidelines as any,
+    facts: facts as any,
+    terms: terms as any,
     media: newVer.media,
     links: newVer.links,
   });

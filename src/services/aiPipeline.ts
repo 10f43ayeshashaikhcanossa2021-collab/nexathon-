@@ -380,8 +380,8 @@ export function runDeterministicChecks(
       }
     }
 
-    // Exclamation mark discipline (G-07)
-    if (g.code === 'G-07' || /exclamation/i.test(g.title)) {
+    // Exclamation mark discipline (G-07 or tone guideline)
+    if (g.code === 'G-07' || /exclamation/i.test(g.title) || /exclamation/i.test(g.rule_text)) {
       const exclMatch = /!{2,}/.exec(draft);
       if (exclMatch) {
         const issueId = `det-rule-${issueCounter++}`;
@@ -542,6 +542,8 @@ export function runDeterministicChecks(
         status: 'rule_violation',
         confidence: 'high',
         excerpt: `[Image: ${m.name}]`,
+        start_offset: 0,
+        end_offset: 0,
         evidence_refs: ['G-10'],
         explanation: `Embedded image "${m.name}" is missing required descriptive alt text for accessibility.`,
         source: 'code',
@@ -690,7 +692,6 @@ export async function runAnalysisPipeline(input: PipelineInput): Promise<Pipelin
     try {
       const ai = new GoogleGenAI({
         apiKey,
-        transport: 'rest',
       });
 
       const systemPrompt = `You are INKLOOM AI, a strict, reference-grounded brand compliance evaluator.
