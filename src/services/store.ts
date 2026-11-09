@@ -843,58 +843,14 @@ class ReactiveStore {
   }
 
   loadFromStorage() {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem('inkloom_store_v1');
-      if (raw) {
-        const data = JSON.parse(raw);
-        if (data.submissions) this.submissions = data.submissions;
-        if (data.versions) this.versions = data.versions;
-        if (data.reports) this.reports = data.reports;
-        if (data.guidelines) this.guidelines = data.guidelines;
-        if (data.facts) this.facts = data.facts;
-        if (data.terms) this.terms = data.terms;
-        if (data.assets) this.assets = data.assets;
-        if (data.comments) this.comments = data.comments;
-        if (data.approvals) this.approvals = data.approvals;
-        if (data.auditLogs) this.auditLogs = data.auditLogs;
-        if (data.socialAccounts) this.socialAccounts = data.socialAccounts;
-        if (data.socialVariants) this.socialVariants = data.socialVariants;
-        if (data.publishJobs) this.publishJobs = data.publishJobs;
-        if (data.publishResults) this.publishResults = data.publishResults;
-      }
-    } catch (_) {}
+    // Purely in-memory runtime store; server API is the single source of truth
   }
 
   persist() {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(
-        'inkloom_store_v1',
-        JSON.stringify({
-          submissions: this.submissions,
-          versions: this.versions,
-          reports: this.reports,
-          guidelines: this.guidelines,
-          facts: this.facts,
-          terms: this.terms,
-          assets: this.assets,
-          comments: this.comments,
-          approvals: this.approvals,
-          auditLogs: this.auditLogs,
-          socialAccounts: this.socialAccounts,
-          socialVariants: this.socialVariants,
-          publishJobs: this.publishJobs,
-          publishResults: this.publishResults,
-        })
-      );
-    } catch (_) {}
+    // Purely in-memory runtime store; server API is the single source of truth
   }
 
   resetToSeed() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('inkloom_store_v1');
-    }
     this.guidelines = [...SEED_GUIDELINES];
     this.facts = [...SEED_FACTS];
     this.terms = [...SEED_TERMS];

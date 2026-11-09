@@ -11,7 +11,6 @@ import {
   HelpCircle,
   Database,
 } from 'lucide-react';
-import { store } from '../services/store';
 
 interface AiEngineModalProps {
   isOpen: boolean;
@@ -19,32 +18,7 @@ interface AiEngineModalProps {
 }
 
 export const AiEngineModal: React.FC<AiEngineModalProps> = ({ isOpen, onClose }) => {
-  const [apiKey, setApiKey] = useState('');
-  const [isSaved, setIsSaved] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('inkloom_gemini_key') || '';
-      setApiKey(saved);
-    }
-  }, [isOpen]);
-
   if (!isOpen) return null;
-
-  const handleSaveKey = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('inkloom_gemini_key', apiKey.trim());
-      setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 2500);
-    }
-  };
-
-  const handleClearKey = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('inkloom_gemini_key');
-      setApiKey('');
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
@@ -136,70 +110,36 @@ export const AiEngineModal: React.FC<AiEngineModalProps> = ({ isOpen, onClose })
             </div>
           </div>
 
-          {/* Optional Gemini API Key Configuration */}
+          {/* Server-Side AI Security Notice */}
           <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Key className="w-4 h-4 text-[#139A93]" />
                 <h5 className="text-xs font-bold uppercase tracking-wider text-[#0B1B3A]">
-                  Gemini API Key (Optional Override)
+                  Server-Side AI Security & Trust Boundary
                 </h5>
               </div>
-              {apiKey && (
-                <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-200">
-                  Custom Key Configured
-                </span>
-              )}
+              <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-200">
+                Server Proxy Only
+              </span>
             </div>
 
-            <p className="text-xs text-slate-500">
-              The platform operates seamlessly with its built-in reference-grounded semantic pipeline. If you
-              wish to query the live Gemini 3.8 Flash endpoint directly, enter your key below:
+            <p className="text-xs text-slate-500 leading-relaxed">
+              In accordance with enterprise trust boundary standards, the browser client never holds or transmits Gemini API keys.
+              All analysis pipeline executions run authoritatively on the backend server.
             </p>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="password"
-                placeholder="AIzaSy..."
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="flex-1 text-xs font-mono p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-              <button
-                type="button"
-                onClick={handleSaveKey}
-                className="px-4 py-2.5 bg-[#139A93] hover:bg-[#0D706B] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-              >
-                Save Key
-              </button>
-              {apiKey && (
-                <button
-                  type="button"
-                  onClick={handleClearKey}
-                  className="px-3 py-2.5 text-xs text-slate-500 hover:text-rose-600 hover:bg-slate-100 rounded-xl"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {isSaved && (
-              <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4" /> Key saved for this browser session.
-              </p>
-            )}
           </div>
         </div>
 
         {/* Footer */}
         <div className="px-6 py-3 border-t border-[#D5DBE5] bg-slate-50 flex items-center justify-between">
           <span className="text-[11px] text-slate-400">
-            Tenant: {store.profiles[0].name} ({store.guidelines.length} guidelines, {store.facts.length} facts)
+            Tenant: Lumora Master Brand Voice (Enterprise Active Profile)
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900"
+            className="px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
           >
             Done
           </button>

@@ -355,3 +355,14 @@ export interface PublishResult {
   response_metadata?: any;
 }
 
+export interface DbHealthReport {
+  connected: boolean;
+  mode?: 'pool' | 'replica' | 'memory' | 'database';
+  projectUrl?: string;
+  latencyMs: number;
+  tablesVerified?: string[];
+  status: 'operational' | 'degraded' | 'unreachable' | 'active';
+  timestamp: string;
+  error?: string;
+}
+

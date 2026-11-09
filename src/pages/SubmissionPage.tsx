@@ -64,43 +64,12 @@ export const SubmissionPage: React.FC<SubmissionPageProps> = ({
     'Validating citations, eliminating hallucinations & compiling report...',
   ];
 
-  // Autosave to localStorage
+  // Initialize demo scenario if requested
   useEffect(() => {
     if (loadDemo) {
       loadScenario(1);
-      return;
-    }
-    const saved = localStorage.getItem('inkloom_draft_autosave');
-    if (saved) {
-      try {
-        const d = JSON.parse(saved);
-        setTitle(d.title || '');
-        setContentType(d.contentType || 'email');
-        setBodyText(d.bodyText || '');
-        setMediaList(d.mediaList || []);
-        setLinksList(d.linksList || []);
-      } catch (_) {}
     }
   }, [loadDemo]);
-
-  useEffect(() => {
-    if (bodyText || title || mediaList.length > 0) {
-      try {
-        // Strip heavy base64 strings from localStorage to stay safely within 5MB quota
-        const safeMedia = mediaList.map((m) => ({
-          name: m.name,
-          alt_text: m.alt_text,
-          url: m.url && m.url.length > 40000 ? undefined : m.url,
-        }));
-        localStorage.setItem(
-          'inkloom_draft_autosave',
-          JSON.stringify({ title, contentType, bodyText, mediaList: safeMedia, linksList })
-        );
-      } catch (err) {
-        console.warn('Draft autosave skipped due to storage limits', err);
-      }
-    }
-  }, [title, contentType, bodyText, mediaList, linksList]);
 
   // Load diverse test scenarios to prove analysis on DIFFERENT data
   const loadScenario = (num: number) => {
@@ -403,7 +372,6 @@ export const SubmissionPage: React.FC<SubmissionPageProps> = ({
       await api.triggerAnalysis(subResult.submission.submission_id);
 
       clearInterval(interval);
-      localStorage.removeItem('inkloom_draft_autosave');
       onNavigate('results', { submissionId: subResult.submission.submission_id });
     } catch (err: any) {
       clearInterval(interval);

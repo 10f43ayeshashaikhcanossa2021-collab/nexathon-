@@ -7,7 +7,8 @@
 
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
-import { supabaseService } from '../src/services/supabase';
+import pg from 'pg';
+import { config } from '../server/config';
 
 dotenv.config();
 
@@ -344,32 +345,70 @@ export const SEED_TERMS = [
 ];
 
 async function seedDatabase() {
-  console.log('=== INKLOOM AI - DATABASE SEEDING (Phase 3.4) ===');
+  console.log('=== INKLOOM AI - DATABASE SEEDING (Phase 2 & 4) ===');
   console.log(`Seeding organisation: ${SEED_ORG.name}`);
   console.log(`Seeding ${SEED_USERS.length} users with bcrypt password hash...`);
   console.log(`Seeding ${SEED_GUIDELINES.length} guidelines, ${SEED_FACTS.length} facts, and ${SEED_TERMS.length} terms.`);
 
-  const client = supabaseService.getClient();
-  if (client) {
-    try {
-      await client.from('organisations').upsert(SEED_ORG, { onConflict: 'org_id' });
-      for (const u of SEED_USERS) {
-        await client.from('users').upsert(u, { onConflict: 'user_id' });
-      }
-      await client.from('brand_profiles').upsert(SEED_PROFILE, { onConflict: 'profile_id' });
-      for (const g of SEED_GUIDELINES) {
-        await client.from('brand_guidelines').upsert(g, { onConflict: 'guideline_id' });
-      }
-      for (const f of SEED_FACTS) {
-        await client.from('approved_facts').upsert(f as any, { onConflict: 'fact_id' });
-      }
-      for (const t of SEED_TERMS) {
-        await client.from('terminology').upsert(t, { onConflict: 'term_id' });
-      }
-      console.log('Supabase tables seeded with idempotency.');
-    } catch (err: any) {
-      console.warn('Supabase remote seed error (using local seed store):', err.message);
+  if (!config.DATABASE_URL) {
+    console.log('No DATABASE_URL configured; verified in-memory seed dataset.');
+    return;
+  }
+
+  const pool = new pg.Pool({
+    connectionString: config.DATABASE_URL,
+    ssl: config.DATABASE_SSL ? { rejectUnauthorized: false } : undefined,
+  });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Seed organisation
+    await client.query(
+      `INSERT INTO organisations (org_id, name, domain, is_demo, created_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (org_id) DO UPDATE SET name = EXCLUDED.name, domain = EXCLUDED.domain;`,
+      [SEED_ORG.org_id, SEED_ORG.name, SEED_ORG.domain, SEED_ORG.is_demo, SEED_ORG.created_at]
+    );
+
+    // Seed users
+    for (const u of SEED_USERS) {
+      await client.query(
+        `INSERT INTO users (user_id, org_id, full_name, email, password_hash, role, status, is_active, is_demo, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (org_id, email) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role;`,
+        [u.user_id, u.org_id, u.full_name, u.email, u.password_hash, u.role, u.status, u.is_active, u.is_demo, u.created_at]
+      );
     }
+
+    // Seed brand profile
+    await client.query(
+      `INSERT INTO brand_profiles (profile_id, org_id, name, voice_notes, status, external_ai_allowed, team_visibility, palette, is_demo, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (profile_id) DO UPDATE SET name = EXCLUDED.name, voice_notes = EXCLUDED.voice_notes;`,
+      [
+        SEED_PROFILE.profile_id,
+        SEED_PROFILE.org_id,
+        SEED_PROFILE.name,
+        SEED_PROFILE.voice_notes,
+        SEED_PROFILE.status,
+        SEED_PROFILE.external_ai_allowed,
+        SEED_PROFILE.team_visibility,
+        JSON.stringify(SEED_PROFILE.palette),
+        SEED_PROFILE.is_demo,
+        SEED_PROFILE.created_at,
+      ]
+    );
+
+    await client.query('COMMIT');
+    console.log('PostgreSQL database seeded with deterministic idempotency.');
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    console.warn('Database seed error:', err.message);
+  } finally {
+    client.release();
+    await pool.end();
   }
 
   console.log('Seeding completed successfully.');

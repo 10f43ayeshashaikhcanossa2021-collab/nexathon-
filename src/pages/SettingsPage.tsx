@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { store } from '../services/store';
 import { api } from '../api/client';
-import { SupabaseHealthReport } from '../services/supabase';
+import { DbHealthReport } from '../types/inkloom';
 import {
   Settings,
   RefreshCw,
@@ -21,13 +21,8 @@ import {
 
 export const SettingsPage: React.FC = () => {
   const [resetDone, setResetDone] = useState(false);
-  const [geminiKey, setGeminiKey] = useState(
-    typeof window !== 'undefined' ? localStorage.getItem('inkloom_gemini_key') || '' : ''
-  );
-  const [keySaved, setKeySaved] = useState(false);
-
-  // Supabase State
-  const [dbHealth, setDbHealth] = useState<SupabaseHealthReport | null>(null);
+  // Supabase Database State
+  const [dbHealth, setDbHealth] = useState<DbHealthReport | null>(null);
   const [isCheckingDb, setIsCheckingDb] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<{ success?: boolean; count?: number; error?: string } | null>(null);
@@ -68,14 +63,6 @@ export const SettingsPage: React.FC = () => {
       store.resetToSeed();
       setResetDone(true);
       setTimeout(() => setResetDone(false), 3000);
-    }
-  };
-
-  const handleSaveKey = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('inkloom_gemini_key', geminiKey.trim());
-      setKeySaved(true);
-      setTimeout(() => setKeySaved(false), 2500);
     }
   };
 
@@ -136,27 +123,27 @@ export const SettingsPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-              Supabase Project URL
+              Connection Architecture
             </span>
-            <div className="text-xs font-mono font-bold text-[#0B1B3A] truncate">
-              https://slsqtsnlsdxwbhfazbax.supabase.co
+            <div className="text-xs font-semibold text-[#0B1B3A] truncate">
+              {dbHealth?.mode === 'pool' ? 'PostgreSQL Connection Pool' : 'Server Database Adapter'}
             </div>
             <div className="text-[10px] text-slate-500 flex items-center gap-1">
               <ShieldCheck className="w-3 h-3 text-emerald-600" />
-              <span>TLS / HTTPS Verified</span>
+              <span>TLS / Secure Boundary Enforced</span>
             </div>
           </div>
 
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-              API Publishable Key
+              Client Trust Boundary
             </span>
-            <div className="text-xs font-mono font-bold text-slate-700">
-              sb_publishable_nfxa...wCAdS-Pa
+            <div className="text-xs font-semibold text-slate-700">
+              Zero Secrets in Browser Bundle
             </div>
             <div className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
               <Check className="w-3 h-3" />
-              <span>Authenticated Client Initialized</span>
+              <span>Server-Authoritative Only</span>
             </div>
           </div>
 
@@ -166,7 +153,7 @@ export const SettingsPage: React.FC = () => {
             </span>
             <div className="text-xs font-mono font-bold text-emerald-700 flex items-center gap-1.5">
               <Activity className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{dbHealth?.latencyMs ? `${dbHealth.latencyMs} ms` : 'Checking...'}</span>
+              <span>{dbHealth?.latencyMs ? `${dbHealth.latencyMs} ms` : 'Ready'}</span>
             </div>
             <div className="text-[10px] text-slate-500">
               Health Status: <strong className="text-slate-800 capitalize">{dbHealth?.status || 'Active'}</strong>
@@ -245,32 +232,21 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         <p className="text-xs text-slate-500 leading-relaxed">
-          INKLOOM AI uses Google Gemini <strong>gemini-3.8-flash</strong> for live grounded reasoning.
-          Enter your Gemini API key below to test direct real-time model completions:
+          Google Gemini <strong>gemini-2.5-flash</strong> executes exclusively behind the server pipeline.
+          API keys are managed securely in server environment secrets without browser exposure.
         </p>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="password"
-            placeholder="AIzaSy..."
-            value={geminiKey}
-            onChange={(e) => setGeminiKey(e.target.value)}
-            className="flex-1 text-xs font-mono p-2.5 bg-slate-50 border border-slate-300 rounded-xl"
-          />
-          <button
-            type="button"
-            onClick={handleSaveKey}
-            className="px-4 py-2.5 bg-[#139A93] hover:bg-[#0D706B] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-          >
-            Save Key
-          </button>
-        </div>
-
-        {keySaved && (
-          <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-            <CheckCircle2 className="w-4 h-4" /> Custom Gemini API key saved!
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-medium text-slate-700">Server Execution Mode:</span>
+            <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              Active Server Proxy
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Browser never handles Gemini or DB keys. All analysis requests route through authenticated /api/submissions/:id/analyse.
           </p>
-        )}
+        </div>
       </div>
 
       {/* Reset State Card */}
