@@ -7,7 +7,7 @@
 import { validateImageBuffer } from './validate';
 import { decodeAndNormalizeImage, DecodedImage } from './decode';
 import { extractPixelClusters, auditColorsAgainstPalette } from './colour';
-import { auditLogosInImage, detectCandidatesInImage } from './logo';
+import { auditLogosInImage } from './logo';
 import { auditLayoutAndVisibility } from './layout';
 import { runGeminiVisionReview } from './gemini';
 import { fuseFindings } from './fuse';

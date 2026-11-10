@@ -1028,7 +1028,7 @@ class ApiClient {
 
   async runVisualCheck(
     versionId: string,
-    payload?: { media_index?: number; rawBase64?: string; imageName?: string } | number
+    payload?: { media_index?: number; rawBase64?: string; imageName?: string; media?: any; imageUrl?: string } | number
   ): Promise<VisualCheckReport> {
     const body = typeof payload === 'number' ? { media_index: payload } : payload || {};
     const res = await fetch(apiUrl(`/api/versions/${versionId}/visual-check`), {

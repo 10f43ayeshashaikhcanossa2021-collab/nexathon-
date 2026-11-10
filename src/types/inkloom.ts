@@ -367,7 +367,8 @@ export type VisualIssueCategory =
   | 'logo_compliance'
   | 'color_compliance'
   | 'visual_consistency'
-  | 'guideline_deviation';
+  | 'guideline_deviation'
+  | 'layout_spacing';
 
 export type VisualIssueSeverity = 'critical' | 'high' | 'medium' | 'low';
 
@@ -375,7 +376,8 @@ export type VisualIssueReviewStatus =
   | 'pending'
   | 'confirmed'
   | 'false_positive'
-  | 'needs_correction';
+  | 'needs_correction'
+  | 'unreviewed';
 
 export interface DetectedRegion {
   x: number; // percentage 0-100 or px
@@ -393,12 +395,14 @@ export interface ColorComparison {
   detected_name?: string;
   delta_e: number; // CIE Delta E (perceptual distance)
   prominence?: number; // e.g. 24% of image area
+  coverage_percentage?: number;
   rule_code?: string;
 }
 
 export interface LogoComparison {
   approved_logo_id?: string;
   approved_logo_name?: string;
+  approved_asset_name?: string;
   approved_logo_url?: string;
   detected_logo_region?: DetectedRegion;
   detected_aspect_ratio?: number;
@@ -488,5 +492,17 @@ export interface VisualCheckReport {
   width?: number;
   height?: number;
   superseded?: boolean;
+}
+
+export interface DbHealthReport {
+  connected: boolean;
+  mode?: 'pool' | 'replica' | 'memory' | 'database';
+  projectUrl?: string;
+  latencyMs: number;
+  tablesVerified?: string[];
+  status: 'operational' | 'degraded' | 'unreachable' | 'active' | 'connected' | 'unconfigured';
+  timestamp: string;
+  error?: string;
+  checkedAt?: string;
 }
 
