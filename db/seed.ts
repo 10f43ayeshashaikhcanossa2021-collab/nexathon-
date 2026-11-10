@@ -7,8 +7,8 @@
 
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
-import pg from 'pg';
-import { config } from '../server/config';
+import { supabaseService } from '../src/services/supabase';
+import { BrandProfile, BrandGuideline, BrandAsset } from '../src/types/inkloom';
 
 dotenv.config();
 
@@ -91,7 +91,7 @@ export const SEED_USERS = [
   },
 ];
 
-export const SEED_PROFILE = {
+export const SEED_PROFILE: BrandProfile = {
   profile_id: 'prof-lumora-fit',
   org_id: SEED_ORG.org_id,
   name: 'Lumora Master Brand Voice',
@@ -104,7 +104,7 @@ export const SEED_PROFILE = {
   created_at: '2026-08-01T10:00:00Z',
 };
 
-export const SEED_GUIDELINES = [
+export const SEED_GUIDELINES: BrandGuideline[] = [
   {
     guideline_id: 'g-01',
     profile_id: SEED_PROFILE.profile_id,
@@ -220,6 +220,51 @@ export const SEED_GUIDELINES = [
     content_types: ['email', 'social_post', 'ad_copy', 'landing_page'],
     example_good: 'Rated 4.8 stars by over 15,000 members on Google Play Store.',
     example_bad: 'We are the number one rated fitness app.',
+    version: 1,
+    is_active: true,
+    is_demo: true,
+    created_at: '2026-08-01T10:00:00Z',
+  },
+  {
+    guideline_id: 'g-16',
+    profile_id: SEED_PROFILE.profile_id,
+    code: 'G-16',
+    title: 'Logo Clear Space & Aspect Ratio',
+    category: 'visual',
+    rule_text: 'The Lumora Master Logo must strictly preserve a 1:1 aspect ratio with minimum 25% clear space on all sides. Stretching, non-uniform scaling, or skewing is forbidden.',
+    content_types: ['social_post', 'ad_copy', 'landing_page'],
+    example_good: 'Square 1:1 proportion with adequate padding.',
+    example_bad: 'Stretched or squashed logo mark.',
+    version: 1,
+    is_active: true,
+    is_demo: true,
+    created_at: '2026-08-01T10:00:00Z',
+  },
+  {
+    guideline_id: 'g-17',
+    profile_id: SEED_PROFILE.profile_id,
+    code: 'G-17',
+    title: 'Approved Logo Color Variations',
+    category: 'visual',
+    rule_text: 'Only certified monochrome brand mark variations (Teal #139A93 on light or White #FFFFFF on dark) are permitted. Gradient modifications, drop shadows, or unapproved recoloring are prohibited.',
+    content_types: ['social_post', 'ad_copy', 'landing_page'],
+    example_good: 'Flat Loom Teal (#139A93) vector mark on white canvas.',
+    example_bad: 'Multicolor rainbow or red gradient logo mark.',
+    version: 1,
+    is_active: true,
+    is_demo: true,
+    created_at: '2026-08-01T10:00:00Z',
+  },
+  {
+    guideline_id: 'g-18',
+    profile_id: SEED_PROFILE.profile_id,
+    code: 'G-18',
+    title: 'Logo Requirement on Marketing Ads',
+    category: 'visual',
+    rule_text: 'All promotional banners and marketing creatives must contain an approved Lumora logo mark for instant brand recognition.',
+    content_types: ['ad_copy', 'social_post', 'landing_page'],
+    example_good: 'Promotional graphic featuring official Lumora Master Logo.',
+    example_bad: 'Ad design with zero brand logo marks.',
     version: 1,
     is_active: true,
     is_demo: true,
@@ -344,71 +389,63 @@ export const SEED_TERMS = [
   },
 ];
 
+export const SEED_ASSETS: BrandAsset[] = [
+  {
+    asset_id: 'ast-01',
+    profile_id: SEED_PROFILE.profile_id,
+    name: 'Lumora Master Logo (Teal on White)',
+    asset_type: 'logo',
+    file_url: '/demo-assets/logos/lumora_logo_teal.png',
+    alt_text: 'Lumora Fitness brand mark with abstract running loom spiral in teal',
+    created_at: '2026-08-01T10:00:00Z',
+  },
+  {
+    asset_id: 'ast-02',
+    profile_id: SEED_PROFILE.profile_id,
+    name: 'Lumora App Hero Showcase Banner',
+    asset_type: 'image',
+    file_url: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800&auto=format&fit=crop&q=80',
+    alt_text: 'Athletes participating in morning mobility training outdoors',
+    created_at: '2026-08-01T10:00:00Z',
+  },
+  {
+    asset_id: 'ast-03',
+    profile_id: SEED_PROFILE.profile_id,
+    name: 'Lumora Master Logo Mark (White on Navy)',
+    asset_type: 'logo',
+    file_url: '/demo-assets/logos/lumora_logo_white.png',
+    alt_text: 'Lumora Fitness official monochrome reversed white logo mark on dark background',
+    created_at: '2026-08-01T10:00:00Z',
+  },
+];
+
 async function seedDatabase() {
-  console.log('=== INKLOOM AI - DATABASE SEEDING (Phase 2 & 4) ===');
+  console.log('=== INKLOOM AI - DATABASE SEEDING (Phase 3.4) ===');
   console.log(`Seeding organisation: ${SEED_ORG.name}`);
   console.log(`Seeding ${SEED_USERS.length} users with bcrypt password hash...`);
   console.log(`Seeding ${SEED_GUIDELINES.length} guidelines, ${SEED_FACTS.length} facts, and ${SEED_TERMS.length} terms.`);
 
-  if (!config.DATABASE_URL) {
-    console.log('No DATABASE_URL configured; verified in-memory seed dataset.');
-    return;
-  }
-
-  const pool = new pg.Pool({
-    connectionString: config.DATABASE_URL,
-    ssl: config.DATABASE_SSL ? { rejectUnauthorized: false } : undefined,
-  });
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Seed organisation
-    await client.query(
-      `INSERT INTO organisations (org_id, name, domain, is_demo, created_at)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (org_id) DO UPDATE SET name = EXCLUDED.name, domain = EXCLUDED.domain;`,
-      [SEED_ORG.org_id, SEED_ORG.name, SEED_ORG.domain, SEED_ORG.is_demo, SEED_ORG.created_at]
-    );
-
-    // Seed users
-    for (const u of SEED_USERS) {
-      await client.query(
-        `INSERT INTO users (user_id, org_id, full_name, email, password_hash, role, status, is_active, is_demo, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (org_id, email) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role;`,
-        [u.user_id, u.org_id, u.full_name, u.email, u.password_hash, u.role, u.status, u.is_active, u.is_demo, u.created_at]
-      );
+  const client = supabaseService.getClient();
+  if (client) {
+    try {
+      await client.from('organisations').upsert(SEED_ORG, { onConflict: 'org_id' });
+      for (const u of SEED_USERS) {
+        await client.from('users').upsert(u, { onConflict: 'user_id' });
+      }
+      await client.from('brand_profiles').upsert(SEED_PROFILE, { onConflict: 'profile_id' });
+      for (const g of SEED_GUIDELINES) {
+        await client.from('brand_guidelines').upsert(g, { onConflict: 'guideline_id' });
+      }
+      for (const f of SEED_FACTS) {
+        await client.from('approved_facts').upsert(f as any, { onConflict: 'fact_id' });
+      }
+      for (const t of SEED_TERMS) {
+        await client.from('terminology').upsert(t, { onConflict: 'term_id' });
+      }
+      console.log('Supabase tables seeded with idempotency.');
+    } catch (err: any) {
+      console.warn('Supabase remote seed error (using local seed store):', err.message);
     }
-
-    // Seed brand profile
-    await client.query(
-      `INSERT INTO brand_profiles (profile_id, org_id, name, voice_notes, status, external_ai_allowed, team_visibility, palette, is_demo, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (profile_id) DO UPDATE SET name = EXCLUDED.name, voice_notes = EXCLUDED.voice_notes;`,
-      [
-        SEED_PROFILE.profile_id,
-        SEED_PROFILE.org_id,
-        SEED_PROFILE.name,
-        SEED_PROFILE.voice_notes,
-        SEED_PROFILE.status,
-        SEED_PROFILE.external_ai_allowed,
-        SEED_PROFILE.team_visibility,
-        JSON.stringify(SEED_PROFILE.palette),
-        SEED_PROFILE.is_demo,
-        SEED_PROFILE.created_at,
-      ]
-    );
-
-    await client.query('COMMIT');
-    console.log('PostgreSQL database seeded with deterministic idempotency.');
-  } catch (err: any) {
-    await client.query('ROLLBACK');
-    console.warn('Database seed error:', err.message);
-  } finally {
-    client.release();
-    await pool.end();
   }
 
   console.log('Seeding completed successfully.');

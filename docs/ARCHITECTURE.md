@@ -98,7 +98,26 @@ graph TD
   - Fix Length Bounds: Discards suggestions attempting full-document rewriting (>3x excerpt length).
 - **Graceful Fallback Mode**: If Gemini API is unreachable or key is missing, the engine executes deterministic checks and flags `ai_status: 'fallback'`.
 
-### 3.4 Data Tier (Supabase PostgreSQL)
+### 3.4 Automated Image Brand Checking & Computer Vision Tier
+- **Engine**: `src/services/imageAnalysisEngine.ts` & `src/components/AutomatedBrandVisualCheck.tsx`.
+- **Perceptual Color Science (CIE Delta E 2000)**:
+  - Converts sRGB color stops to linear RGB, CIE XYZ (D65 illuminant), and CIE L*a*b*.
+  - Implements the complete CIE $\Delta E_{2000}$ formula with chroma weighting $S_C$, hue rotation term $R_T$, and luminance compensation $S_L$ to calculate human-perceptible color difference.
+  - Automatically identifies dominant color clusters and benchmarks against the approved brand palette tokens (`#0B1B3A`, `#139A93`, `#FBFAF7`, `#FFFFFF`, `#E65100`).
+  - Distinguishes acceptable tint variations ($\Delta E \le 4.0$) from off-brand color violations ($\Delta E > 6.0$).
+- **Logo Detection & Geometric Distortion Engine**:
+  - Compares detected logo regions against approved vector and bitmap logos in Brand Hub (`brand_assets`).
+  - Detects non-uniform scaling, aspect ratio skew (e.g. 1.48:1 vs approved 1.00:1), and horizontal/vertical stretch factors.
+  - Identifies unapproved logo color variations, gradient fills, and missing mandatory brand marks.
+  - Generates pixel/percentage bounding boxes (`region: { x, y, width, height }`) for interactive visual overlay highlighting on uploaded creative designs.
+- **Multimodal AI Vision Support**:
+  - Automatically harnesses `@google/genai` with `gemini-3.8-flash` on the server when `GEMINI_API_KEY` is present.
+  - Gracefully falls back to high-precision local computer vision and Delta E algorithms when running offline or in restricted environments.
+- **Human-in-the-Loop Visual Confirmation**:
+  - Reviewers can confirm issues (`confirmed`), mark false positives (`false_positive`), or flag items needing correction (`needs_correction`).
+  - Preserves existing manual logo overlay comparison slider and visual compliance checklists.
+
+### 3.5 Data Tier (Supabase PostgreSQL)
 - **Database Engine**: Hosted PostgreSQL instance at `https://slsqtsnlsdxwbhfazbax.supabase.co`.
 - **15 Structured Relational Tables**:
   1. `organisations`

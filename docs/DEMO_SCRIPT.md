@@ -68,20 +68,31 @@ Follow these steps to demonstrate the complete, reference-grounded governance wo
 
 ---
 
-### Step 5: Reviewer Neil D'Souza Inspects & Signs Off
+### Step 5: Reviewer Neil D'Souza Runs Automated Brand Visual Check & Signs Off
 1. **Switch to Reviewer**:
-   - Switch persona to **Neil D'Souza (Reviewer)**.
+   - Switch persona to **Neil D'Souza (Reviewer)** via the persona selector.
 2. **Review Queue**:
    - Open **Review Queue**: see the submission at the top of the queue.
-3. **Approval Details & Diff**:
-   - Click the submission to open **Approval Details**.
-   - Switch to **Word Diff**: review side-by-side green additions and red deletions between v1 and v2.
-   - Switch to **Visual Compare**: inspect logo clear space and overlay blend slider.
-   - Fill in the compliance checklist (logo, clear space, brand colors).
-4. **Human Sign-Off**:
-   - Enter decision note (≥5 chars): `"Approved for publication. All facts and voice rules verified."`
-   - Click **Approve Version**: status transitions to `approved`.
-   - The decision is permanently recorded in the immutable `approval_records` table with timestamp and reviewer ID.
+3. **Automated Brand Visual Check (New Feature Walkthrough)**:
+   - Click the submission to open the **Reviewer Decision Station**.
+   - Notice the **Automated Brand Visual Check** station mode:
+     - Click **Run Visual Analysis**: watch the 5-stage progress indicator (approved assets ingestion -> color extraction -> CIE Delta E 2000 distance -> logo geometry & distortion -> explainable findings).
+     - Notice the **Overall Visual Compliance Status**: flagged as `ACTION REQUIRED` with breakdown (1 Critical, 2 High, 1 Medium).
+     - Inspect the **Interactive Creative Canvas**: hover over the glowing bounding boxes outlining the stretched logo and the off-brand red headline directly on the uploaded visual!
+     - Review the **Extracted Palette Analysis**: examine the stacked horizontal color stop bar with exact HEX codes and Delta E perceptual distance scores.
+     - Inspect Finding 1 (**Incorrect Brand Colour**): compare the expected swatch (`#139A93 Loom Teal`) against the detected swatch (`#E74C3C Crimson Red`) with $\Delta E = 58.7$.
+     - Inspect Finding 2 (**Logo Distortion**): compare the approved 1:1 master logo against the detected 1.48:1 aspect ratio (+48% horizontal stretch).
+     - Inspect Finding 3 (**Unapproved Logo Variation**): review critical alert for unapproved gradient alterations.
+4. **Human Review Confirmation Actions**:
+   - On the color violation finding, click **Confirm Issue** and add reviewer note: `"Confirmed. Replace red banner text with Loom Teal (#139A93) before marketing release."`
+   - Notice the status updates to `Confirmed by Neil D'Souza` and records an immutable audit log.
+5. **Preserved Manual Visual Comparison & Diff**:
+   - Switch sub-tab to **Manual Overlay & Diff**: move the interactive **Overlay Blend Slider** (0% to 100%) to visually align the approved master logo contour against the design.
+   - Switch mode to **Copy & Word Diff**: inspect side-by-side green additions and red deletions between v1 and v2.
+   - Check off the reviewer visual compliance checklist (logo, brand colors, appropriate training imagery).
+6. **Human Decision Sign-Off**:
+   - Enter decision note (≥5 chars): `"Visual audit completed with required color corrections. Copy matches all guidelines."`
+   - Click **Approve Version** (or **Request Changes**): status transitions safely and is recorded in `approval_records`.
 
 ---
 

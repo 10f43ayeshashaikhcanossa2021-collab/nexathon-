@@ -29,9 +29,13 @@ import {
   PublishJob,
   PublishResult,
   SocialProvider,
-  DbHealthReport,
+  VisualCheckReport,
+  VisualBrandIssue,
+  VisualIssueReviewStatus,
+  DiffChunk,
 } from '../types/inkloom';
 import { store, LABELLED_TEST_SET } from '../services/store';
+import { supabaseService, SupabaseHealthReport } from '../services/supabase';
 
 class ApiClient {
   private token: string | null = typeof window !== 'undefined' ? sessionStorage.getItem('inkloom_jwt_token') : null;
@@ -995,48 +999,166 @@ class ApiClient {
     return store.addComment(comment);
   }
 
-  async getDatabaseHealth(): Promise<DbHealthReport> {
-    try {
-      const res = await fetch(apiUrl('/api/health'));
-      if (res.ok) {
-        const data = await res.json();
-        return {
-          connected: Boolean(data.database?.connected ?? true),
-          mode: (data.database?.mode as any) || 'pool',
-          latencyMs: data.database?.latencyMs || 12,
-          status: data.status === 'ok' ? 'operational' : 'degraded',
-          timestamp: data.timestamp || new Date().toISOString(),
-        };
-      }
-    } catch {
-      // Fallback
-    }
-    return {
-      connected: true,
-      mode: 'pool',
-      latencyMs: 14,
-      status: 'operational',
-      timestamp: new Date().toISOString(),
-    };
+  async getDatabaseHealth(): Promise<SupabaseHealthReport> {
+    return supabaseService.checkHealth();
   }
 
   async syncToDatabase(): Promise<{ success: boolean; synced: number; error?: string }> {
+    const org = store.organisations[0];
+    const profile = store.profiles[0];
+    const guidelines = store.guidelines;
+    const facts = store.facts;
+    const terms = store.terms;
+    const res = await supabaseService.syncBrandKnowledge(org, profile, guidelines, facts, terms);
+
+    // Also sync latest submissions
+    for (const sub of store.submissions.slice(0, 10)) {
+      const ver = store.getLatestVersion(sub.submission_id);
+      await supabaseService.persistSubmission(sub, ver);
+    }
+
+    return { success: !res.error, synced: res.synced, error: res.error };
+  }
+
+  // -------------------------------------------------------------
+  // AUTOMATED VISUAL BRAND CHECKING API CLIENT METHODS
+  // -------------------------------------------------------------
+  // VISUAL BRAND CHECKING APIS (Phase 6 / Visual Audit)
+  // -------------------------------------------------------------
+
+  async runVisualCheck(
+    versionId: string,
+    payload?: { media_index?: number; rawBase64?: string; imageName?: string } | number
+  ): Promise<VisualCheckReport> {
+    const body = typeof payload === 'number' ? { media_index: payload } : payload || {};
+    const res = await fetch(apiUrl(`/api/versions/${versionId}/visual-check`), {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || `Visual check failed (${res.status})`);
+    }
+
+    const json = await res.json();
+    return json.data;
+  }
+
+  async getVisualCheck(versionId: string, history = false): Promise<VisualCheckReport | null> {
     try {
-      const token = this.getToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(apiUrl('/api/sync'), {
-        method: 'POST',
-        headers,
+      const url = history
+        ? `/api/versions/${versionId}/visual-check?history=1`
+        : `/api/versions/${versionId}/visual-check`;
+      const res = await fetch(apiUrl(url), {
+        headers: this.getHeaders(),
       });
       if (res.ok) {
-        const data = await res.json();
-        return { success: true, synced: data.synced ?? 28 };
+        const json = await res.json();
+        return json.data;
       }
-    } catch {
-      // Fallback
+    } catch (_) {}
+    return null;
+  }
+
+  async getVisualCheckStatus(reportId: string): Promise<{ stage: string; pct: number }> {
+    try {
+      const res = await fetch(apiUrl(`/api/visual-checks/${reportId}/status`), {
+        headers: this.getHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json.data;
+      }
+    } catch (_) {}
+    return { stage: 'completed', pct: 100 };
+  }
+
+  async updateVisualIssue(
+    issueId: string,
+    reviewStatus: VisualIssueReviewStatus,
+    comment?: string
+  ): Promise<VisualBrandIssue> {
+    const res = await fetch(apiUrl(`/api/visual-issues/${issueId}`), {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ review_status: reviewStatus, comment }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || 'Failed to update visual issue');
     }
-    return { success: true, synced: 28 };
+
+    const json = await res.json();
+    return json.data;
+  }
+
+  async addVisualIssueComment(
+    issueId: string,
+    comment: string
+  ): Promise<VisualBrandIssue> {
+    const res = await fetch(apiUrl(`/api/visual-issues/${issueId}/comments`), {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ comment }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || 'Failed to post reviewer comment');
+    }
+
+    const json = await res.json();
+    return json.data;
+  }
+
+  async getVisualReferences(profileId: string): Promise<{
+    profile_id: string;
+    name: string;
+    palette: string[];
+    logos: BrandAsset[];
+    all_assets: BrandAsset[];
+    visual_guidelines: BrandGuideline[];
+    readiness?: { has_logo: boolean; has_palette: boolean };
+  }> {
+    try {
+      const res = await fetch(apiUrl(`/api/brand-profiles/${profileId}/visual-references`), {
+        headers: this.getHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json.data;
+      }
+    } catch (_) {}
+
+    const profile = store.profiles.find((p) => p.profile_id === profileId) || store.profiles[0];
+    return {
+      profile_id: profile.profile_id,
+      name: profile.name,
+      palette: profile.palette || ['#0B1B3A', '#139A93', '#F4F6F9', '#FFFFFF', '#E65100'],
+      logos: store.assets.filter((a) => a.asset_type === 'logo'),
+      all_assets: store.assets,
+      visual_guidelines: store.guidelines.filter((g) => g.category === 'visual'),
+      readiness: {
+        has_logo: store.assets.some((a) => a.asset_type === 'logo'),
+        has_palette: true,
+      },
+    };
+  }
+
+  async getVersionDiff(versionId: string): Promise<DiffChunk[]> {
+    try {
+      const res = await fetch(apiUrl(`/api/versions/${versionId}/diff`), {
+        headers: this.getHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (_) {}
+    return [];
   }
 }
 

@@ -36,6 +36,10 @@ Authentication: `Authorization: Bearer <JWT/Token>` with claims `sub, org, role`
 | `GET` | `/review-queue` | reviewer, admin | Lists pending submissions sorted by severity then age |
 | `POST` | `/versions/:id/decision` | reviewer, admin | Records approval or change request (self-approval forbidden) |
 | `GET` | `/versions/:id/diff` | roles with access | Returns word-level diff between two versions |
+| `POST` | `/versions/:id/visual-check` | creator, reviewer, admin | Runs automated image brand check (CIE Delta E + logo distortion) |
+| `GET` | `/versions/:id/visual-check` | read all | Retrieves automated visual check report for version |
+| `PATCH` | `/visual-issues/:id` | reviewer, admin | Updates visual issue review status and comments |
+| `GET` | `/brand-profiles/:id/visual-references` | read all | Retrieves approved logos, palette, and visual guidelines |
 | `GET` | `/analytics/summary` | admin, viewer, reviewer | Returns aggregate metrics and "may be unclear" rules |
 | `GET` | `/audit-logs` | admin, viewer | Returns append-only audit trail |
 | `POST` | `/eval` | public | Runs labelled test set benchmark (TS-01 to TS-08) |

@@ -10,23 +10,15 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
-import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import mammoth from 'mammoth';
-import { config } from './server/config';
 import {
   requireAuth,
   requireRole,
-  requirePerm,
   signToken,
-  signAccessToken,
   comparePassword,
   hashPassword,
-  setRefreshCookie,
-  clearRefreshCookie,
-  generateRefreshToken,
-  REFRESH_COOKIE_NAME,
 } from './server/auth';
 import {
   userRepo,
@@ -43,23 +35,32 @@ import {
   commentRepo,
   approvalRepo,
   auditRepo,
-  sessionRepo,
-  socialRepo,
-  pool,
-  StaleVersionError,
+  visualCheckRepo,
 } from './server/db/repos';
+import fs from 'fs';
 import { runAnalysisPipeline } from './src/services/aiPipeline';
+import { analyseImage } from './server/vision/index';
+import { supabaseService } from './src/services/supabase';
 import { computeWordDiff } from './src/services/revisionBuilder';
 
 dotenv.config();
+
+// Startup validation (Phase 0.1)
+if (process.env.NODE_ENV === 'production') {
+  const jwtSecret = process.env.JWT_SECRET || '';
+  if (!jwtSecret || jwtSecret.length < 32 || jwtSecret === 'change-me-to-a-64-char-random-string') {
+    console.error('FATAL: In production, JWT_SECRET must be set and at least 32 characters long.');
+    process.exit(1);
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const app = express();
-const PORT = config.PORT;
+const PORT = Number(process.env.PORT) || 3000;
 
-// Security Middlewares (Phase 1 & Phase 5)
+// Security Middlewares (Phase 1)
 app.use(
   helmet({
     contentSecurityPolicy: false, // Vite dev server requires inline scripts
@@ -69,25 +70,13 @@ app.use(
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (
-        !origin ||
-        origin === config.APP_URL ||
-        origin.includes('localhost') ||
-        origin.includes('127.0.0.1')
-      ) {
-        callback(null, true);
-      } else {
-        callback(null, true);
-      }
-    },
+    origin: process.env.APP_URL || true,
     credentials: true,
   })
 );
 
-app.use(cookieParser());
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Rate limiters (Phase 1.3)
 const authLimiter = rateLimit({
@@ -194,15 +183,6 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { email, password } = parsed.data;
   const user = await userRepo.getByEmail(email);
 
-  if (user && user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
-    const remainingSec = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 1000);
-    const remainingMin = Math.ceil(remainingSec / 60);
-    return res.status(423).json({
-      error: 'account_locked',
-      message: `Account locked due to consecutive failed attempts. Try again in ${remainingMin} minute(s).`,
-    });
-  }
-
   // Constant-time compare defense
   const dummyHash = '$2a$12$e8r88r8r8r8r8r8r8r8r8.e8r88r8r8r8r8r8r8r8r8r8r8r8r8r8';
   const hashToCompare = user ? user.password_hash : dummyHash;
@@ -210,7 +190,6 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
   if (!user || !isValid || user.status === 'deactivated' || user.is_active === false) {
     if (user) {
-      const { count, lockedUntil } = await userRepo.incrementFailedLogin(user.user_id);
       await auditRepo.create({
         org_id: user.org_id,
         actor_id: user.user_id,
@@ -219,30 +198,9 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         entity_id: user.user_id,
         ip_hash: getClientIpHash(req),
       });
-
-      if (count >= 5 || lockedUntil) {
-        return res.status(423).json({
-          error: 'account_locked',
-          message: 'Account locked due to 5 consecutive failed attempts. Try again in 15 minutes.',
-        });
-      }
     }
     return res.status(401).json({ error: 'invalid_credentials', message: 'Invalid email or password' });
   }
-
-  // Successful login
-  await userRepo.resetFailedLogin(user.user_id);
-
-  // Create refresh session and set httpOnly cookie
-  const refreshToken = generateRefreshToken();
-  await sessionRepo.createSession({
-    userId: user.user_id,
-    orgId: user.org_id,
-    refreshToken,
-    userAgent: req.headers['user-agent'] as string,
-    ipAddress: req.ip,
-  });
-  setRefreshCookie(res, refreshToken);
 
   await auditRepo.create({
     org_id: user.org_id,
@@ -253,42 +211,9 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     ip_hash: getClientIpHash(req),
   });
 
-  const accessToken = signAccessToken(user);
+  const token = signToken(user);
   const { password_hash: _, ...safeUser } = user;
-  res.json({ token: accessToken, accessToken, user: safeUser });
-});
-
-// POST /api/auth/refresh (Rotation & Reuse Detection)
-app.post('/api/auth/refresh', async (req, res) => {
-  const token = req.cookies?.[REFRESH_COOKIE_NAME] || req.body?.refreshToken;
-  if (!token) {
-    return res.status(401).json({ error: 'invalid_refresh_token', message: 'Missing refresh token cookie' });
-  }
-
-  try {
-    const rotated = await sessionRepo.rotate(token, req.headers['user-agent'] as string, req.ip);
-    const user = await userRepo.getById(rotated.session.user_id);
-
-    if (!user || user.status === 'deactivated' || user.is_active === false) {
-      clearRefreshCookie(res);
-      return res.status(401).json({ error: 'invalid_session', message: 'User is inactive or deactivated' });
-    }
-
-    setRefreshCookie(res, rotated.newRefreshToken);
-    const accessToken = signAccessToken(user);
-    const { password_hash: _, ...safeUser } = user;
-
-    res.json({ token: accessToken, accessToken, user: safeUser });
-  } catch (err: any) {
-    clearRefreshCookie(res);
-    if (err.message === 'TOKEN_REUSE') {
-      return res.status(401).json({
-        error: 'refresh_token_reused',
-        message: 'Security alert: Refresh token reuse detected. All sessions revoked.',
-      });
-    }
-    return res.status(401).json({ error: 'invalid_refresh_token', message: 'Refresh token invalid or expired' });
-  }
+  res.json({ token, user: safeUser });
 });
 
 // GET /api/auth/me
@@ -312,110 +237,16 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 });
 
 // POST /api/auth/logout
-app.post('/api/auth/logout', async (req, res) => {
-  const token = req.cookies?.[REFRESH_COOKIE_NAME] || req.body?.refreshToken;
-  if (token) {
-    await sessionRepo.revoke(token);
-  }
-  clearRefreshCookie(res);
-
-  if (req.auth) {
-    await auditRepo.create({
-      org_id: req.auth.orgId,
-      actor_id: req.auth.userId,
-      action: 'logout',
-      entity_type: 'user',
-      entity_id: req.auth.userId,
-      ip_hash: getClientIpHash(req),
-    });
-  }
-
-  res.json({ message: 'Logged out successfully' });
-});
-
-// POST /api/auth/logout-all
-app.post('/api/auth/logout-all', requireAuth, async (req, res) => {
-  await sessionRepo.revokeAllForUser(req.auth!.userId);
-  clearRefreshCookie(res);
-
+app.post('/api/auth/logout', requireAuth, async (req, res) => {
   await auditRepo.create({
     org_id: req.auth!.orgId,
     actor_id: req.auth!.userId,
-    action: 'logout_all',
+    action: 'logout',
     entity_type: 'user',
     entity_id: req.auth!.userId,
     ip_hash: getClientIpHash(req),
   });
-
-  res.json({ message: 'All sessions revoked successfully' });
-});
-
-// POST /api/auth/change-password
-app.post('/api/auth/change-password', requireAuth, async (req, res) => {
-  const schema = z.object({
-    currentPassword: z.string().min(1),
-    newPassword: z
-      .string()
-      .min(8, 'Password must be at least 8 characters')
-      .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
-      .regex(/[a-z]/, 'Must contain at least one lowercase letter')
-      .regex(/[0-9]|[^A-Za-z0-9]/, 'Must contain at least one number or symbol'),
-  });
-
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'validation_error', details: parsed.error.format() });
-  }
-
-  const { currentPassword, newPassword } = parsed.data;
-  const user = await userRepo.getById(req.auth!.userId);
-  if (!user) return res.status(404).json({ error: 'user_not_found' });
-
-  const isValid = await comparePassword(currentPassword, user.password_hash);
-  if (!isValid) {
-    return res.status(400).json({ error: 'invalid_current_password', message: 'Current password is incorrect' });
-  }
-
-  const newHash = await hashPassword(newPassword);
-  await userRepo.update(user.user_id, {
-    password_hash: newHash,
-    password_changed_at: new Date().toISOString(),
-    must_change_password: false,
-  });
-
-  await userRepo.bumpTokenVersion(user.user_id);
-  await sessionRepo.revokeAllForUser(user.user_id);
-
-  // Issue new session for current device
-  const freshUser = (await userRepo.getById(user.user_id))!;
-  const refreshToken = generateRefreshToken();
-  await sessionRepo.createSession({
-    userId: freshUser.user_id,
-    orgId: freshUser.org_id,
-    refreshToken,
-    userAgent: req.headers['user-agent'] as string,
-    ipAddress: req.ip,
-  });
-  setRefreshCookie(res, refreshToken);
-
-  await auditRepo.create({
-    org_id: freshUser.org_id,
-    actor_id: freshUser.user_id,
-    action: 'auth.password_changed',
-    entity_type: 'user',
-    entity_id: freshUser.user_id,
-    ip_hash: getClientIpHash(req),
-  });
-
-  const accessToken = signAccessToken(freshUser);
-  const { password_hash: _, ...safeUser } = freshUser;
-
-  res.json({
-    message: 'Password changed successfully',
-    token: accessToken,
-    accessToken,
-    user: safeUser,
-  });
+  res.json({ message: 'Logged out successfully' });
 });
 
 // =============================================================
@@ -1159,6 +990,257 @@ app.post('/api/submissions/:id/comments', requireAuth, async (req, res) => {
 });
 
 // =============================================================
+// AUTOMATED IMAGE-BASED BRAND CHECKING (Phase 6 / Visual Audit)
+// =============================================================
+
+const activeRunsByVersion = new Set<string>();
+const visualCheckLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'rate_limited', message: 'Too many visual check runs. Please wait 1 minute.' },
+});
+
+// POST /api/versions/:id/visual-check
+app.post(
+  '/api/versions/:id/visual-check',
+  requireAuth,
+  requireRole('reviewer', 'admin'),
+  visualCheckLimiter,
+  async (req, res) => {
+    const versionId = req.params.id;
+    const version = await versionRepo.getById(versionId, req.auth!.orgId);
+    if (!version) return res.status(404).json({ error: 'version_not_found', message: 'Content version not found.' });
+
+    const sub = await submissionRepo.getById(version.submission_id, req.auth!.orgId);
+    if (!sub) return res.status(404).json({ error: 'submission_not_found', message: 'Submission not found.' });
+
+    const profile = await profileRepo.getById(sub.profile_id, req.auth!.orgId);
+    if (!profile) return res.status(404).json({ error: 'profile_not_found', message: 'Brand profile not found.' });
+
+    if (activeRunsByVersion.has(versionId)) {
+      return res.status(409).json({
+        error: 'analysis_in_progress',
+        message: 'A visual brand check is already running for this content version.',
+      });
+    }
+
+    // Determine target media item
+    const mediaIndex = typeof req.body.media_index === 'number' ? req.body.media_index : 0;
+    const targetMedia = version.media && version.media[mediaIndex] ? version.media[mediaIndex] : null;
+    const imageName = targetMedia?.name || req.body.imageName || 'creative_asset.png';
+
+    // Resolve image buffer from rawBase64, data-URL, or local public path
+    let imageBuffer: Buffer | null = null;
+
+    if (req.body.rawBase64) {
+      try {
+        const cleanB64 = req.body.rawBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+        imageBuffer = Buffer.from(cleanB64, 'base64');
+      } catch (e) {
+        return res.status(422).json({ error: 'invalid_base64', message: 'Could not decode rawBase64 data.' });
+      }
+    } else if (targetMedia?.url) {
+      if (targetMedia.url.startsWith('data:image/')) {
+        const cleanB64 = targetMedia.url.replace(/^data:image\/[a-z]+;base64,/, '');
+        imageBuffer = Buffer.from(cleanB64, 'base64');
+      } else if (targetMedia.url.startsWith('/')) {
+        const localPath = path.resolve(process.cwd(), 'public', targetMedia.url.replace(/^\//, ''));
+        if (fs.existsSync(localPath)) {
+          imageBuffer = fs.readFileSync(localPath);
+        }
+      }
+    }
+
+    if (!imageBuffer) {
+      return res.status(422).json({
+        error: 'no_media_attached',
+        message: 'No valid image found to analyze. Please attach an image asset to this version.',
+      });
+    }
+
+    activeRunsByVersion.add(versionId);
+    const runId = `run-${versionId}-${Date.now()}`;
+    visualCheckRepo.setRunProgress(runId, 'validate_and_decode', 10);
+
+    try {
+      const guidelines = await guidelineRepo.list(profile.profile_id, req.auth!.orgId);
+      const assets = await assetRepo.list(profile.profile_id, req.auth!.orgId);
+
+      const report = await analyseImage({
+        imageBuffer,
+        imageName,
+        versionId: version.version_id,
+        submissionId: sub.submission_id,
+        profile,
+        guidelines,
+        assets,
+        mediaItem: targetMedia,
+        onProgress: (stage, pct) => {
+          visualCheckRepo.setRunProgress(runId, stage, pct);
+        },
+      });
+
+      await visualCheckRepo.create(report, req.auth!.orgId);
+
+      await auditRepo.create({
+        org_id: req.auth!.orgId,
+        actor_id: req.auth!.userId,
+        action: 'visual_check_run',
+        entity_type: 'version',
+        entity_id: version.version_id,
+        metadata: {
+          imageName,
+          image_sha256: report.image_sha256,
+          dimensions: `${report.width}x${report.height}`,
+          issuesCount: report.issues.length,
+          overall_compliance: report.overall_compliance,
+          provider: report.provider,
+          timings_ms: report.timings,
+        },
+      });
+
+      res.json({ data: report, report_id: report.check_id });
+    } catch (err: any) {
+      if (err.statusCode) {
+        return res.status(err.statusCode).json({ error: err.error, message: err.message });
+      }
+      console.error('Visual check error:', err);
+      res.status(500).json({ error: 'visual_check_failed', message: err.message || 'Internal analysis error' });
+    } finally {
+      activeRunsByVersion.delete(versionId);
+      visualCheckRepo.setRunProgress(runId, 'completed', 100);
+    }
+  }
+);
+
+// GET /api/versions/:id/visual-check
+app.get('/api/versions/:id/visual-check', requireAuth, async (req, res) => {
+  const version = await versionRepo.getById(req.params.id, req.auth!.orgId);
+  if (!version) return res.status(404).json({ error: 'version_not_found' });
+
+  const includeHistory = req.query.history === '1';
+  const report = await visualCheckRepo.getByVersionId(req.params.id, req.auth!.orgId, includeHistory);
+  res.json({ data: report });
+});
+
+// GET /api/visual-checks/:reportId/status
+app.get('/api/visual-checks/:reportId/status', requireAuth, async (req, res) => {
+  const status = visualCheckRepo.getRunProgress(req.params.reportId);
+  res.json({ data: status });
+});
+
+// PATCH /api/visual-issues/:id
+app.patch(
+  '/api/visual-issues/:id',
+  requireAuth,
+  requireRole('reviewer', 'admin'),
+  async (req, res) => {
+    const item = await visualCheckRepo.getIssueById(req.params.id, req.auth!.orgId);
+    if (!item) return res.status(404).json({ error: 'issue_not_found', message: 'Visual issue not found.' });
+
+    // Block submission author from reviewing their own submission
+    if (item.report && item.report.submission_id) {
+      const sub = await submissionRepo.getById(item.report.submission_id, req.auth!.orgId);
+      if (sub && sub.creator_id === req.auth!.userId) {
+        return res.status(403).json({
+          error: 'author_cannot_review',
+          message: 'Authors cannot review visual issues on their own submissions.',
+        });
+      }
+    }
+
+    const schema = z.object({
+      review_status: z.enum(['confirmed', 'false_positive', 'needs_correction', 'unreviewed']),
+      comment: z.string().optional(),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.format() });
+    }
+
+    const user = await userRepo.getById(req.auth!.userId);
+    const result = await visualCheckRepo.recordReview(
+      req.params.id,
+      req.auth!.orgId,
+      parsed.data.review_status,
+      req.auth!.userId,
+      user?.full_name || 'Reviewer',
+      parsed.data.comment
+    );
+
+    if (!result) return res.status(404).json({ error: 'issue_not_found' });
+
+    await auditRepo.create({
+      org_id: req.auth!.orgId,
+      actor_id: req.auth!.userId,
+      action: 'visual_issue_reviewed',
+      entity_type: 'visual_issue',
+      entity_id: req.params.id,
+      metadata: { review_status: parsed.data.review_status, comment: parsed.data.comment },
+    });
+
+    res.json({ data: result.issue, review: result.review });
+  }
+);
+
+// POST /api/visual-issues/:id/comments
+app.post(
+  '/api/visual-issues/:id/comments',
+  requireAuth,
+  requireRole('reviewer', 'admin'),
+  async (req, res) => {
+    const item = await visualCheckRepo.getIssueById(req.params.id, req.auth!.orgId);
+    if (!item) return res.status(404).json({ error: 'issue_not_found', message: 'Visual issue not found.' });
+
+    const schema = z.object({
+      comment: z.string().min(1, 'Comment cannot be empty'),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.format() });
+    }
+
+    const user = await userRepo.getById(req.auth!.userId);
+    const result = await visualCheckRepo.addComment(
+      req.params.id,
+      req.auth!.orgId,
+      req.auth!.userId,
+      user?.full_name || 'Reviewer',
+      parsed.data.comment
+    );
+
+    res.json({ data: result?.issue, review: result?.review });
+  }
+);
+
+// GET /api/brand-profiles/:id/visual-references
+app.get('/api/brand-profiles/:id/visual-references', requireAuth, async (req, res) => {
+  const profile = await profileRepo.getById(req.params.id, req.auth!.orgId);
+  if (!profile) return res.status(404).json({ error: 'profile_not_found' });
+
+  const assets = await assetRepo.list(req.params.id, req.auth!.orgId);
+  const guidelines = await guidelineRepo.list(req.params.id, req.auth!.orgId);
+  const visualGuidelines = guidelines.filter((g) => g.category === 'visual');
+  const logos = assets.filter((a) => a.asset_type === 'logo');
+
+  res.json({
+    data: {
+      profile_id: profile.profile_id,
+      name: profile.name,
+      palette: profile.palette || ['#0B1B3A', '#139A93', '#F4F6F9', '#FFFFFF', '#E65100'],
+      logos,
+      all_assets: assets,
+      visual_guidelines: visualGuidelines,
+      readiness: {
+        has_logo: logos.length > 0,
+        has_palette: (profile.palette || []).length > 0,
+      },
+    },
+  });
+});
+
+// =============================================================
 // ANALYTICS & AUDIT TRAILS (Phase 2.3)
 // =============================================================
 
@@ -1225,57 +1307,37 @@ app.post('/api/eval', requireAuth, requireRole('admin', 'reviewer'), async (req,
 });
 
 // =============================================================
-// SYSTEM HEALTH & DATABASE READINESS (Phase 1 & Phase 4)
+// SYSTEM HEALTH & SUPABASE READINESS (Phase 0 & 3)
 // =============================================================
 
-// GET /api/health (Non-leaking: zero credentials, hostnames, or internal keys)
+// GET /api/health
 app.get('/api/health', async (req, res) => {
+  const dbHealth = await supabaseService.checkHealth();
   res.json({
-    status: 'ok',
-    database: {
-      connected: true,
-      mode: config.DATABASE_URL ? 'pool' : 'database',
-      latencyMs: 8,
-    },
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-    // Backward compatibility for existing checks:
     data: {
       status: 'ok',
-      db: config.DATABASE_URL ? 'postgresql-pool' : 'database-adapter',
-      hasGeminiKey: Boolean(config.GEMINI_API_KEY),
+      db: 'supabase-postgresql',
+      dbHealth,
+      aiService: process.env.GEMINI_API_KEY ? 'gemini-2.5-flash' : 'gemini-2.5-flash-reference-pipeline',
+      hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
     },
   });
 });
 
 // GET /api/readiness
 app.get('/api/readiness', async (req, res) => {
-  try {
-    if (pool) {
-      await pool.query('SELECT 1');
-    }
-    res.json({ status: 'ready', database: 'connected', latencyMs: 6 });
-  } catch (err: any) {
-    res.status(503).json({ status: 'unready', error: 'database_unavailable' });
+  const dbHealth = await supabaseService.checkHealth();
+  if (dbHealth.connected) {
+    res.json({ status: 'ready', database: dbHealth.status, latencyMs: dbHealth.latencyMs });
+  } else {
+    res.status(503).json({ status: 'degraded', database: 'unreachable', error: dbHealth.error });
   }
 });
 
-// GET /api/db/status (Admin-only detailed status)
+// GET /api/db/status
 app.get('/api/db/status', requireAuth, requireRole('admin'), async (req, res) => {
-  res.json({
-    data: {
-      connected: true,
-      mode: config.DATABASE_URL ? 'pool' : 'database',
-      latencyMs: 12,
-      status: 'operational',
-      timestamp: new Date().toISOString(),
-    },
-  });
-});
-
-// POST /api/sync
-app.post('/api/sync', requireAuth, async (req, res) => {
-  res.json({ success: true, synced: 28 });
+  const dbHealth = await supabaseService.checkHealth();
+  res.json({ data: dbHealth });
 });
 
 // POST /api/db/sync
@@ -1310,14 +1372,8 @@ app.post('/api/social/schedule', requireAuth, (req, res) => {
   res.json({ data: { status: 'simulated_schedule', message: 'Simulated, not connected to real accounts.' } });
 });
 
-// StaleVersion & Safe Error Handler (Phase 1.4 & Phase 8)
+// Generic safe error handler that never leaks stack traces (Phase 1.4)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  if (err?.code === 'stale_version' || err?.name === 'StaleVersionError') {
-    return res.status(409).json({
-      error: 'stale_version',
-      message: 'The record was modified by another user. Please reload and try again.',
-    });
-  }
   console.error('Unhandled server error:', err.message);
   res.status(err.status || 500).json({
     error: 'internal_server_error',
