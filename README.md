@@ -77,13 +77,13 @@ INKLOOM AI uses zero secrets in client bundles. All external keys and database c
 # Start development server (serves API & React frontend on port 3000)
 npm run dev
 
-# Run automated test suite (23 unit & integration tests across 6 files)
+# Run automated test suite (36 unit & integration tests across 7 files including visual check)
 npm test
 
 # Run honest split evaluation runner (dev vs holdout splits with F1)
 npm run eval
 
-# Verify all 33 REST API contract endpoints against server router
+# Verify all 37 REST API contract endpoints against server router
 npm run contract:check
 
 # Run database migrations

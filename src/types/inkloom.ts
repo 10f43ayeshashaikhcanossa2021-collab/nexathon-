@@ -30,6 +30,8 @@ export interface BrandProfile {
   external_ai_allowed: boolean;
   team_visibility: 'team' | 'own';
   status: 'active' | 'archived';
+  palette?: string[];
+  is_demo?: boolean;
   created_at: string;
 }
 
@@ -61,6 +63,7 @@ export interface BrandGuideline {
   example_bad?: string;
   version: number;
   is_active: boolean;
+  is_demo?: boolean;
   created_at: string;
 }
 
@@ -93,6 +96,7 @@ export interface BrandAsset {
   asset_type: 'logo' | 'color' | 'font' | 'image';
   file_url?: string;
   alt_text?: string;
+  is_demo?: boolean;
   created_at: string;
 }
 
@@ -355,14 +359,134 @@ export interface PublishResult {
   response_metadata?: any;
 }
 
-export interface DbHealthReport {
-  connected: boolean;
-  mode?: 'pool' | 'replica' | 'memory' | 'database';
-  projectUrl?: string;
-  latencyMs: number;
-  tablesVerified?: string[];
-  status: 'operational' | 'degraded' | 'unreachable' | 'active';
-  timestamp: string;
-  error?: string;
+// -------------------------------------------------------------
+// AUTOMATED IMAGE-BASED BRAND CHECKING TYPES
+// -------------------------------------------------------------
+
+export type VisualIssueCategory =
+  | 'logo_compliance'
+  | 'color_compliance'
+  | 'visual_consistency'
+  | 'guideline_deviation';
+
+export type VisualIssueSeverity = 'critical' | 'high' | 'medium' | 'low';
+
+export type VisualIssueReviewStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'false_positive'
+  | 'needs_correction';
+
+export interface DetectedRegion {
+  x: number; // percentage 0-100 or px
+  y: number; // percentage 0-100 or px
+  width: number;
+  height: number;
+  unit?: '%' | 'px';
+  label?: string;
+}
+
+export interface ColorComparison {
+  expected_hex: string;
+  expected_name?: string;
+  detected_hex: string;
+  detected_name?: string;
+  delta_e: number; // CIE Delta E (perceptual distance)
+  prominence?: number; // e.g. 24% of image area
+  rule_code?: string;
+}
+
+export interface LogoComparison {
+  approved_logo_id?: string;
+  approved_logo_name?: string;
+  approved_logo_url?: string;
+  detected_logo_region?: DetectedRegion;
+  detected_aspect_ratio?: number;
+  expected_aspect_ratio?: number;
+  distortion_factor?: number; // ratio discrepancy e.g. 1.48 (48% stretch)
+  variation_type?: 'unapproved_variant' | 'stretched' | 'low_contrast' | 'missing' | 'altered_elements';
+}
+
+export interface VisualBrandIssue {
+  issue_id: string;
+  report_id?: string;
+  image_name: string;
+  image_url?: string;
+  title: string;
+  category: VisualIssueCategory;
+  severity: VisualIssueSeverity;
+  confidence: number; // 0 to 100 percentage
+  confidence_basis?: Record<string, any>;
+  description: string;
+  expected_rule: string;
+  detected_result: string;
+  recommendation: string;
+  region?: DetectedRegion;
+  color_comparison?: ColorComparison;
+  logo_comparison?: LogoComparison;
+  source?: 'deterministic' | 'ai' | 'fused';
+  classification?: 'violation' | 'possible_concern';
+  review_status: VisualIssueReviewStatus;
+  reviewer_comment?: string;
+  reviewed_by?: string;
+  reviewed_by_name?: string;
+  reviewed_at?: string;
+}
+
+export interface ExtractedColorItem {
+  hex: string;
+  rgb: [number, number, number];
+  percentage: number;
+  is_approved: boolean;
+  closest_approved_hex: string;
+  delta_e: number;
+}
+
+export interface VisualIssueReview {
+  review_id: string;
+  issue_id: string;
+  org_id: string;
+  reviewer_id: string;
+  reviewer_name?: string;
+  decision: VisualIssueReviewStatus;
+  comment?: string;
+  created_at: string;
+}
+
+export interface VisualCheckReport {
+  check_id: string;
+  version_id: string;
+  submission_id: string;
+  org_id?: string;
+  created_at: string;
+  status: 'completed' | 'analyzing' | 'failed';
+  overall_compliance: 'compliant' | 'concerns_detected' | 'action_required';
+  summary: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    total: number;
+    resolved: number;
+  };
+  extracted_colors: ExtractedColorItem[];
+  detected_logos: {
+    name: string;
+    region?: DetectedRegion;
+    match_score: number;
+    is_distorted: boolean;
+    is_approved_variant: boolean;
+    details?: string;
+  }[];
+  issues: VisualBrandIssue[];
+  provider: 'gemini_vision' | 'cv_heuristic_engine';
+  model?: string;
+  engine_version?: string;
+  engine_notes?: string;
+  timings?: Record<string, number>;
+  image_sha256?: string;
+  width?: number;
+  height?: number;
+  superseded?: boolean;
 }
 

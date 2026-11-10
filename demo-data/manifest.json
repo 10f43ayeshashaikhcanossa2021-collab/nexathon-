@@ -1,0 +1,144 @@
+{
+  "version": "2.1.0",
+  "generated_at": "2026-11-09T14:06:41.642Z",
+  "benchmark_note": "Ground-truth test set for pixel-level visual brand checking.",
+  "cases": [
+    {
+      "id": "case-01",
+      "filename": "01_compliant_banner.png",
+      "title": "Compliant Showcase Banner",
+      "expected_status": "compliant",
+      "expected_violations_count": 0,
+      "expected_findings": []
+    },
+    {
+      "id": "case-02",
+      "filename": "02_compliant_story.png",
+      "title": "Compliant Vertical Story (White on Navy)",
+      "expected_status": "compliant",
+      "expected_violations_count": 0,
+      "expected_findings": []
+    },
+    {
+      "id": "case-03",
+      "filename": "03_compliant_reversed.png",
+      "title": "Compliant White Background Guide",
+      "expected_status": "compliant",
+      "expected_violations_count": 0,
+      "expected_findings": []
+    },
+    {
+      "id": "case-04",
+      "filename": "04_wrong_colour.png",
+      "title": "Unapproved Saturated Red Campaign",
+      "expected_status": "action_required",
+      "expected_violations_count": 1,
+      "expected_findings": [
+        {
+          "category": "color_compliance",
+          "severity": "high",
+          "detected_hex": "#E74C3C"
+        }
+      ]
+    },
+    {
+      "id": "case-05",
+      "filename": "05_stretched_logo.png",
+      "title": "Stretched Logo Mark (1.5:1 Stretch)",
+      "expected_status": "action_required",
+      "expected_violations_count": 1,
+      "expected_findings": [
+        {
+          "category": "visual_consistency",
+          "severity": "high",
+          "title_contains": "Distortion"
+        }
+      ]
+    },
+    {
+      "id": "case-06",
+      "filename": "06_gradient_shadow_logo.png",
+      "title": "Gradient & Shadow Logo Variant",
+      "expected_status": "action_required",
+      "expected_violations_count": 1,
+      "expected_findings": [
+        {
+          "category": "logo_compliance",
+          "severity": "critical",
+          "title_contains": "Variation"
+        }
+      ]
+    },
+    {
+      "id": "case-07",
+      "filename": "07_unapproved_partner_logo.png",
+      "title": "Unapproved Partner Logo Mark",
+      "expected_status": "action_required",
+      "expected_violations_count": 1,
+      "expected_findings": [
+        {
+          "category": "logo_compliance",
+          "severity": "critical",
+          "title_contains": "Unapproved"
+        }
+      ]
+    },
+    {
+      "id": "case-08",
+      "filename": "08_missing_logo.png",
+      "title": "Missing Mandatory Brand Logo (G-18)",
+      "expected_status": "action_required",
+      "expected_violations_count": 1,
+      "expected_findings": [
+        {
+          "category": "logo_compliance",
+          "severity": "high",
+          "title_contains": "Missing"
+        }
+      ]
+    },
+    {
+      "id": "case-09",
+      "filename": "09_low_visibility_logo.png",
+      "title": "Undersized Micro Logo (< 4% Canvas)",
+      "expected_status": "concerns_detected",
+      "expected_violations_count": 1,
+      "expected_findings": [
+        {
+          "category": "visual_consistency",
+          "severity": "medium",
+          "title_contains": "Visibility"
+        }
+      ]
+    },
+    {
+      "id": "case-10",
+      "filename": "10_clear_space_violation.png",
+      "title": "Clear Space Margin Violation",
+      "expected_status": "concerns_detected",
+      "expected_violations_count": 1,
+      "expected_findings": [
+        {
+          "category": "layout_spacing",
+          "severity": "medium",
+          "title_contains": "Clear Space"
+        }
+      ]
+    },
+    {
+      "id": "case-11",
+      "filename": "11_multi_violation_showpiece.png",
+      "title": "Triple Violation Showpiece (Color + Distortion + Margin)",
+      "expected_status": "action_required",
+      "expected_violations_count": 2,
+      "expected_findings": [
+        {
+          "category": "color_compliance"
+        },
+        {
+          "category": "visual_consistency"
+        }
+      ]
+    }
+  ]
+}

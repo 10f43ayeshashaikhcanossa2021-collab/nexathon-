@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { SocialPublishModal } from '../components/SocialPublishModal';
 import { CommentsThread } from '../components/CommentsThread';
+import { AutomatedBrandVisualCheck } from '../components/AutomatedBrandVisualCheck';
+import { DiffChunk } from '../types/inkloom';
 
 interface ApprovalPageProps {
   currentUser: User;
@@ -32,6 +34,9 @@ export const ApprovalPage: React.FC<ApprovalPageProps> = ({
   const [version, setVersion] = useState<ContentVersion | null>(null);
   const [submission, setSubmission] = useState<ContentSubmission | null>(null);
   const [report, setReport] = useState<AnalysisReport | null>(null);
+  const [diffChunks, setDiffChunks] = useState<DiffChunk[]>([]);
+  const [activeReviewTab, setActiveReviewTab] = useState<'visual_check' | 'copy_diff'>('visual_check');
+  const [showDiffMode, setShowDiffMode] = useState(false);
   const [comment, setComment] = useState('');
   const [checklist, setChecklist] = useState({
     logoCorrect: true,
@@ -55,6 +60,15 @@ export const ApprovalPage: React.FC<ApprovalPageProps> = ({
     if (s) setSubmission(s);
     const r = store.getReportByVersionId(v.version_id);
     if (r) setReport(r);
+
+    if (v.version_no > 1) {
+      api.getVersionDiff(v.version_id).then((diff) => {
+        if (diff && diff.length > 0) {
+          setDiffChunks(diff);
+          setShowDiffMode(true);
+        }
+      });
+    }
   };
 
   if (!version || !submission) {
@@ -145,67 +159,161 @@ export const ApprovalPage: React.FC<ApprovalPageProps> = ({
         </div>
       )}
 
-      {/* Split Grid: Content on Left, Decision Controls on Right */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        {/* Left Column: Draft Content */}
-        <div className="md:col-span-7 space-y-4">
-          <div className="bg-white border border-[#D5DBE5] rounded-2xl p-6 shadow-xs space-y-3">
-            <div className="flex items-center justify-between text-xs text-slate-500 pb-2 border-b border-slate-100">
-              <span>Submitted Copy (Version {version.version_no})</span>
-              <span className="font-mono">{version.body_text.split(/\s+/).length} words</span>
-            </div>
+      {/* Reviewer Station Mode Selector */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="inline-flex rounded-xl bg-slate-200/70 p-1 border border-slate-300 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setActiveReviewTab('visual_check')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
+              activeReviewTab === 'visual_check'
+                ? 'bg-white text-[#0B1B3A] font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ImageIcon className="w-4 h-4 text-teal-600" />
+            <span>Automated Brand Visual Check</span>
+            {version.media && version.media.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-teal-100 text-teal-800 text-[10px] font-mono">
+                {version.media.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveReviewTab('copy_diff')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
+              activeReviewTab === 'copy_diff'
+                ? 'bg-white text-[#0B1B3A] font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <FileText className="w-4 h-4 text-slate-600" />
+            <span>Copy & Word Diff</span>
+            {version.version_no > 1 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-mono">
+                v1&rarr;v{version.version_no}
+              </span>
+            )}
+          </button>
+        </div>
 
-            <div className="paper-sheet rounded-xl p-6 space-y-4">
+        {activeReviewTab === 'copy_diff' && version.version_no > 1 && (
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showDiffMode}
+                onChange={(e) => setShowDiffMode(e.target.checked)}
+                className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4"
+              />
+              <span>Highlight Word Revisions (Diff)</span>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Tab 1: Automated Visual Brand Check */}
+      {activeReviewTab === 'visual_check' && (
+        <AutomatedBrandVisualCheck
+          version={version}
+          submission={submission}
+          currentUser={currentUser}
+          onIssueStatusChange={loadData}
+        />
+      )}
+
+      {/* Tab 2: Copy & Word Diff Content */}
+      {activeReviewTab === 'copy_diff' && (
+        <div className="bg-white border border-[#D5DBE5] rounded-2xl p-6 shadow-xs space-y-3">
+          <div className="flex items-center justify-between text-xs text-slate-500 pb-2 border-b border-slate-100">
+            <span>Submitted Copy (Version {version.version_no})</span>
+            <span className="font-mono">{version.body_text.split(/\s+/).length} words</span>
+          </div>
+
+          <div className="paper-sheet rounded-xl p-6 space-y-4">
+            {showDiffMode && diffChunks.length > 0 ? (
+              <div className="font-serif text-slate-800 text-lg leading-relaxed whitespace-pre-wrap">
+                {diffChunks.map((chunk, idx) => {
+                  if (chunk.type === 'inserted') {
+                    return (
+                      <span
+                        key={idx}
+                        className="bg-emerald-100 text-emerald-900 border-b-2 border-emerald-500 font-semibold px-1 rounded-xs"
+                        title="Added in this revision"
+                      >
+                        {chunk.value}{' '}
+                      </span>
+                    );
+                  }
+                  if (chunk.type === 'deleted') {
+                    return (
+                      <span
+                        key={idx}
+                        className="bg-rose-100 text-rose-800 line-through opacity-70 px-1 rounded-xs"
+                        title="Removed from previous version"
+                      >
+                        {chunk.value}{' '}
+                      </span>
+                    );
+                  }
+                  return <span key={idx}>{chunk.value} </span>;
+                })}
+              </div>
+            ) : (
               <p className="font-serif text-slate-800 text-lg leading-relaxed whitespace-pre-wrap">
                 {version.body_text}
               </p>
+            )}
 
-              {version.media && version.media.length > 0 && (
-                <div className="pt-4 border-t border-[#E8E4DC] space-y-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#0B1B3A] flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-teal-600" />
-                    Attached Visual Assets ({version.media.length})
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {version.media.map((m, idx) => (
-                      <div
-                        key={idx}
-                        className="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center gap-3 shadow-2xs"
-                      >
-                        {m.url ? (
-                          <img
-                            src={m.url}
-                            alt={m.alt_text || m.name}
-                            className="w-12 h-12 rounded-lg object-cover border border-slate-200 bg-slate-50 shrink-0"
-                          />
+            {version.media && version.media.length > 0 && (
+              <div className="pt-4 border-t border-[#E8E4DC] space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#0B1B3A] flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-teal-600" />
+                  Attached Visual Assets ({version.media.length})
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {version.media.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center gap-3 shadow-2xs"
+                    >
+                      {m.url ? (
+                        <img
+                          src={m.url}
+                          alt={m.alt_text || m.name}
+                          className="w-12 h-12 rounded-lg object-cover border border-slate-200 bg-slate-50 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center shrink-0">
+                          <ImageIcon className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0 text-xs">
+                        <div className="font-bold text-[#0B1B3A] truncate">{m.name}</div>
+                        {m.alt_text ? (
+                          <div className="text-[11px] text-emerald-700 truncate font-medium">
+                            ✓ "{m.alt_text}"
+                          </div>
                         ) : (
-                          <div className="w-12 h-12 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center shrink-0">
-                            <ImageIcon className="w-5 h-5" />
+                          <div className="text-[10px] text-rose-700 font-bold">
+                            ⚠️ Missing Alt Text
                           </div>
                         )}
-                        <div className="min-w-0 text-xs">
-                          <div className="font-bold text-[#0B1B3A] truncate">{m.name}</div>
-                          {m.alt_text ? (
-                            <div className="text-[11px] text-emerald-700 truncate font-medium">
-                              ✓ "{m.alt_text}"
-                            </div>
-                          ) : (
-                            <div className="text-[10px] text-rose-700 font-bold">
-                              ⚠️ Missing Alt Text
-                            </div>
-                          )}
-                        </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
+      )}
 
-        {/* Right Column: Review Checklist & Decision Actions */}
-        <div className="md:col-span-5 space-y-4">
+      {/* Decision Controls & Collaboration Feedback Strip */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* Left Column: Decision Station & Checklist */}
+        <div className="md:col-span-7 space-y-4">
           <div className="bg-white border border-[#D5DBE5] rounded-2xl p-6 shadow-xs space-y-5">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#0B1B3A] mb-1">
@@ -304,8 +412,10 @@ export const ApprovalPage: React.FC<ApprovalPageProps> = ({
               </div>
             )}
           </div>
+        </div>
 
-          {/* Collaboration Feedback Thread */}
+        {/* Right Column: Collaboration Feedback Thread */}
+        <div className="md:col-span-5 space-y-4">
           <CommentsThread
             submissionId={submission.submission_id}
             versionId={version.version_id}
