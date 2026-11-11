@@ -185,16 +185,30 @@ const handleAcceptFinding = async (issueId: string) => {
     }
   };
 
-  const handleSendForReview = async () => {
-    setActionError(null);
-    try {
-      await api.sendForReview(submissionId);
-      await loadSubmissionData();
-      onNavigate('review-queue');
-    } catch (err: any) {
-      setActionError(err.message || 'Failed to send for review');
-    }
-  };
+  
+const handleSendForReview = async () => {
+  setActionError(null);
+  setActionSuccess(null);
+
+  if (unresolvedHighCount > 0) {
+    setActionError(
+      `Cannot send for review. Please resolve the ${unresolvedHighCount} remaining high-severity finding(s).`
+    );
+    return;
+  }
+
+  try {
+    await api.sendForReview(submissionId);
+    setActionSuccess('Document successfully sent for review.');
+    await loadSubmissionData();
+    onNavigate('review-queue');
+  } catch (err: any) {
+    setActionError(
+      err.message || 'Failed to send document for review.'
+    );
+  }
+};
+
 
   if (!submission || !currentVersion || !report) {
     return (
@@ -204,9 +218,12 @@ const handleAcceptFinding = async (issueId: string) => {
     );
   }
 
-  const unresolvedHighCount = report.issues.filter((i) => {
-    if (i.severity !== 'high') return false;
-    return !i.suggestion || i.suggestion.status === 'pending';
+  const unresolvedHighCount = report.issues.filter((issue) => {
+  if (issue.severity.toLowerCase() !== 'high') return false;
+
+  const status = issue.suggestion?.status?.toLowerCase();
+
+  return status !== 'accepted' && status !== 'dismissed';
   }).length;
 
   return (
@@ -239,7 +256,8 @@ const handleAcceptFinding = async (issueId: string) => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5">
-          {submission.status === 'in_correction' && (
+          {submission.status !== 'in_review' &&
+  submission.status !== 'approved' && (
             <>
               <button
                 type="button"
@@ -251,20 +269,22 @@ const handleAcceptFinding = async (issueId: string) => {
                 <span>Save Accepted as V{currentVersion.version_no + 1}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleSendForReview}
-                disabled={unresolvedHighCount > 0}
-                title={
+              
+<button
+  type="button"
+  onClick={handleSendForReview}
+  disabled={unresolvedHighCount > 0 || isApplying}
+  title={
     unresolvedHighCount > 0
-      ? 'Resolve or justify all high severity findings first'
+      ? `Resolve ${unresolvedHighCount} high-severity finding(s) first`
       : 'Send document for review'
   }
-                className="px-4 py-2 rounded-xl bg-[#139A93] hover:bg-[#0D706B] text-white text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
-              >
-                <Send className="w-4 h-4" />
-                <span>Send for Review</span>
-              </button>
+  className="px-4 py-2 rounded-xl bg-[#139A93] hover:bg-[#0D706B] text-white text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+>
+  <Send className="w-4 h-4" />
+  <span>Send for Review</span>
+</button>
+
             </>
           )}
 
