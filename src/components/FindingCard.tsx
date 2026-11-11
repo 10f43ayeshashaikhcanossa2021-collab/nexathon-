@@ -16,6 +16,7 @@ import {
 interface FindingCardProps {
   issue: DetectedIssue;
   isActive: boolean;
+  isApplying: boolean;
   onSelect: () => void;
   onAccept: (issueId: string) => void;
   onEdit: (issueId: string, finalText: string) => void;
@@ -26,7 +27,7 @@ export const FindingCard: React.FC<FindingCardProps> = ({
   issue,
   isActive,
   onSelect,
-  onAccept,
+  onAccept, isApplying,
   onEdit,
   onDismiss,
 }) => {
@@ -236,6 +237,7 @@ export const FindingCard: React.FC<FindingCardProps> = ({
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
         <button
           type="button"
+           disabled={isApplying || issue.suggestion?.status === 'accepted'}
           onClick={(e) => {
             e.stopPropagation();
             if (issue.severity === 'high' && !showDismissInput) {

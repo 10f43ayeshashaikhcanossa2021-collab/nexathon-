@@ -47,6 +47,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -71,31 +72,29 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   };
 
   
+
 const handleAcceptFinding = async (issueId: string) => {
+  if (!currentVersion || !report || isApplying) return;
+
+  setIsApplying(true);
+  setActionError(null);
+  setActionSuccess(null);
+
   try {
-    setActionError(null);
-
-    // Check that the required data is available
-    if (!currentVersion || !report) {
-      throw new Error('Document or findings are not loaded.');
-    }
-
-    // Find the selected issue
     const selectedIssue = report.issues.find(
       (issue) => issue.issue_id === issueId
     );
 
-    if (!selectedIssue || !selectedIssue.suggestion) {
-      throw new Error('Finding or suggested revision not found.');
+    if (!selectedIssue?.suggestion) {
+      throw new Error('Suggested revision not found.');
     }
 
-    // Do not accept an already accepted finding
     if (selectedIssue.suggestion.status === 'accepted') {
       return;
     }
 
-    // Prepare a copy of the findings with this suggestion accepted
-    const updatedIssues = report.issues.map((issue) =>
+    // Mark this suggestion as accepted before building the revision
+    const acceptedIssues = report.issues.map((issue) =>
       issue.issue_id === issueId
         ? {
             ...issue,
@@ -107,36 +106,44 @@ const handleAcceptFinding = async (issueId: string) => {
         : issue
     );
 
-    // Generate the revised document using the accepted suggestion
+    // Apply the accepted suggestion to the document
     const revisedText = buildSuggestedRevision(
       currentVersion.body_text,
-      updatedIssues
+      acceptedIssues
     );
 
     if (revisedText === currentVersion.body_text) {
       throw new Error(
-        'The suggested revision could not be applied. Please check the finding offsets.'
+        'Revision could not be applied. Please check the finding offsets.'
       );
     }
 
-    // Save the revised document as a new version
+    // Save a new version and run the analysis again
     await api.saveNewVersion(
       submissionId,
       revisedText,
       'ai_applied'
     );
 
-    // Update the original finding's status
+    // Update the original suggestion status
     await api.updateSuggestion(issueId, 'accept');
 
-    // Reload the latest document and findings
+    // Reload the latest document and AI report
     await loadSubmissionData();
 
-    alert('Revision accepted and applied successfully!');
+    setActionSuccess(
+      'Revision accepted! Your updated document is ready for review.'
+    );
+
   } catch (err: any) {
-    setActionError(err.message || 'Failed to accept revision.');
+    setActionError(
+      err.message || 'Failed to apply the suggested revision.'
+    );
+  } finally {
+    setIsApplying(false);
   }
 };
+
 
   const handleEditFinding = async (issueId: string, finalText: string) => {
     try {
@@ -247,6 +254,12 @@ const handleAcceptFinding = async (issueId: string) => {
               <button
                 type="button"
                 onClick={handleSendForReview}
+                disabled={unresolvedHighCount > 0}
+                title={
+    unresolvedHighCount > 0
+      ? 'Resolve or justify all high severity findings first'
+      : 'Send document for review'
+  }
                 className="px-4 py-2 rounded-xl bg-[#139A93] hover:bg-[#0D706B] text-white text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
               >
                 <Send className="w-4 h-4" />
@@ -281,6 +294,16 @@ const handleAcceptFinding = async (issueId: string) => {
 
       {/* Status Rail */}
       <StatusRail status={submission.status} highUnresolved={unresolvedHighCount} />
+
+{actionSuccess && (
+  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center gap-3 text-emerald-900 text-xs">
+    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+    <div>
+      <span className="font-bold">Revision Accepted! </span>
+      {actionSuccess}
+    </div>
+  </div>
+)}
 
       {/* Error alert if transition failed */}
       {actionError && (
@@ -361,6 +384,7 @@ const handleAcceptFinding = async (issueId: string) => {
                 key={issue.issue_id}
                 issue={issue}
                 isActive={issue.issue_id === activeIssueId}
+                isApplying={isApplying}
                 onSelect={() => setActiveIssueId(issue.issue_id)}
                 onAccept={handleAcceptFinding}
                 onEdit={handleEditFinding}
