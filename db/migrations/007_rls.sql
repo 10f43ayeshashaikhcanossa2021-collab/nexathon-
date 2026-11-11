@@ -44,7 +44,45 @@ BEGIN
         USING (org_id = nullif(current_setting(''app.current_org'', true), '''')::uuid)
         WITH CHECK (org_id = nullif(current_setting(''app.current_org'', true), '''')::uuid)', tbl, tbl);
     END IF;
+
+  -- Fix missing tenant organization references before creating RLS policies
+
+  -- correction_suggestions: inherit organization from detected_issues
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'correction_suggestions'
+  ) THEN
+    EXECUTE 'ALTER TABLE correction_suggestions
+      ADD COLUMN IF NOT EXISTS org_id uuid
+      REFERENCES organisations(org_id) ON DELETE CASCADE';
+
+    EXECUTE 'UPDATE correction_suggestions cs
+      SET org_id = di.org_id
+      FROM detected_issues di
+      WHERE cs.issue_id = di.issue_id
+        AND cs.org_id IS NULL';
+  END IF;
+
+  -- publish_jobs: inherit organization from content_submissions
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'publish_jobs'
+  ) THEN
+    EXECUTE 'ALTER TABLE publish_jobs
+      ADD COLUMN IF NOT EXISTS org_id uuid
+      REFERENCES organisations(org_id) ON DELETE CASCADE';
+
+    EXECUTE 'UPDATE publish_jobs pj
+      SET org_id = cs.org_id
+      FROM content_submissions cs
+      WHERE pj.submission_id = cs.submission_id
+        AND pj.org_id IS NULL';
+  END IF;
+
   END LOOP;
+  
 END $$;
 
 -- Revoke public privileges to prevent direct anonymous reads

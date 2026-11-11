@@ -38,6 +38,23 @@ SET org_id = bp.org_id
 FROM brand_profiles bp
 WHERE ba.profile_id = bp.profile_id AND ba.org_id IS NULL;
 
+
+-- content_submissions
+-- Add tenant organization reference and backfill it from brand_profiles
+ALTER TABLE content_submissions
+ADD COLUMN IF NOT EXISTS org_id uuid
+REFERENCES organisations(org_id) ON DELETE CASCADE;
+
+UPDATE content_submissions cs
+SET org_id = bp.org_id
+FROM brand_profiles bp
+WHERE cs.profile_id = bp.profile_id
+  AND cs.org_id IS NULL;
+
+-- Every submission must belong to an organization
+ALTER TABLE content_submissions
+ALTER COLUMN org_id SET NOT NULL;
+
 -- content_versions
 ALTER TABLE content_versions ADD COLUMN IF NOT EXISTS org_id uuid REFERENCES organisations(org_id) ON DELETE CASCADE;
 UPDATE content_versions cv
