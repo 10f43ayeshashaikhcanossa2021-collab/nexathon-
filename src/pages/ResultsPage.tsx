@@ -70,14 +70,73 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
     }
   };
 
-  const handleAcceptFinding = async (issueId: string) => {
-    try {
-      await api.updateSuggestion(issueId, 'accept');
-      await loadSubmissionData();
-    } catch (err: any) {
-      alert(err.message);
+  
+const handleAcceptFinding = async (issueId: string) => {
+  try {
+    setActionError(null);
+
+    // Check that the required data is available
+    if (!currentVersion || !report) {
+      throw new Error('Document or findings are not loaded.');
     }
-  };
+
+    // Find the selected issue
+    const selectedIssue = report.issues.find(
+      (issue) => issue.issue_id === issueId
+    );
+
+    if (!selectedIssue || !selectedIssue.suggestion) {
+      throw new Error('Finding or suggested revision not found.');
+    }
+
+    // Do not accept an already accepted finding
+    if (selectedIssue.suggestion.status === 'accepted') {
+      return;
+    }
+
+    // Prepare a copy of the findings with this suggestion accepted
+    const updatedIssues = report.issues.map((issue) =>
+      issue.issue_id === issueId
+        ? {
+            ...issue,
+            suggestion: {
+              ...issue.suggestion!,
+              status: 'accepted' as const,
+            },
+          }
+        : issue
+    );
+
+    // Generate the revised document using the accepted suggestion
+    const revisedText = buildSuggestedRevision(
+      currentVersion.body_text,
+      updatedIssues
+    );
+
+    if (revisedText === currentVersion.body_text) {
+      throw new Error(
+        'The suggested revision could not be applied. Please check the finding offsets.'
+      );
+    }
+
+    // Save the revised document as a new version
+    await api.saveNewVersion(
+      submissionId,
+      revisedText,
+      'ai_applied'
+    );
+
+    // Update the original finding's status
+    await api.updateSuggestion(issueId, 'accept');
+
+    // Reload the latest document and findings
+    await loadSubmissionData();
+
+    alert('Revision accepted and applied successfully!');
+  } catch (err: any) {
+    setActionError(err.message || 'Failed to accept revision.');
+  }
+};
 
   const handleEditFinding = async (issueId: string, finalText: string) => {
     try {
