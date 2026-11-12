@@ -52,6 +52,27 @@ function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function isFactRelevantToDraft(fact: ApprovedFact, draft: string): boolean {
+  const factContext =
+    `${fact.subject} ${fact.statement}`.toLowerCase();
+
+  const draftText = draft.toLowerCase();
+
+  // Facts belonging to Lumora Free should only apply to Lumora Free content.
+  if (factContext.includes('lumora free')) {
+    return /\blumora\s+free\b/i.test(draftText);
+  }
+
+  // Facts belonging to Lumora Pro should only apply to Lumora Pro content.
+  if (factContext.includes('lumora pro')) {
+    return /\blumora\s+pro\b/i.test(draftText);
+  }
+
+  // Keep normal fact checking for facts without a subscription-tier restriction.
+  return true;
+}
+
+
 /**
  * Phase 4.2 Retrieval Step (COLLECT)
  * Ranks active guidelines, valid non-expired facts, and active terminology.
@@ -79,10 +100,14 @@ export function retrieveReferences(
   // Valid non-expired facts
   const today = new Date().toISOString().split('T')[0];
   const activeFacts = facts.filter((f) => {
-    if (!f.is_active) return false;
-    if (f.valid_until && f.valid_until < today) return false;
-    return true;
-  });
+  if (!f.is_active) return false;
+  if (f.valid_until && f.valid_until < today) return false;
+
+  // Exclude facts belonging to a different subscription plan.
+  if (!isFactRelevantToDraft(f, draft)) return false;
+
+  return true;
+});
 
   // Rank facts by keyword overlap with draft
   const rankedFacts = [...activeFacts]
@@ -186,8 +211,11 @@ export function runDeterministicChecks(
 
   // 1. Dynamic Fact Checking (Phase 4.1)
   // Evaluates numbers, units, and bounds generically from approved_facts rows
-  for (const fact of facts) {
-    if (!fact.is_active) continue;
+ for (const fact of facts) {
+  if (!fact.is_active) continue;
+
+  // Never compare a Free plan fact against Pro content or vice versa.
+  if (!isFactRelevantToDraft(fact, draft)) continue;
 
     // Parse fact statement or structured data for numbers & units
     const numMatch = /(\d+(?:,\d+)?(?:\.\d+)?)\s*(gb|mb|tb|rupees|inr|rs\.?|days?|weeks?|months?|members?|users?)/i.exec(
